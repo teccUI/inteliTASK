@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Target, Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -17,20 +18,31 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  const { login, loginWithGoogle } = useAuth()
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false)
-      // Redirect to dashboard
+
+    try {
+      await login(email, password)
       window.location.href = "/"
-    }, 1000)
+    } catch (error: any) {
+      console.error("Login error:", error)
+      alert(error.message || "Login failed")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleGoogleLogin = () => {
-    // Handle Google OAuth login
-    console.log("Google login")
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle()
+      window.location.href = "/"
+    } catch (error: any) {
+      console.error("Google login error:", error)
+      alert(error.message || "Google login failed")
+    }
   }
 
   return (

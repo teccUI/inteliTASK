@@ -10,21 +10,28 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Target, Mail, ArrowLeft, CheckCircle } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isEmailSent, setIsEmailSent] = useState(false)
 
+  const { resetPassword } = useAuth()
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate password reset email sending
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      await resetPassword(email)
       setIsEmailSent(true)
-    }, 1000)
+    } catch (error: any) {
+      console.error("Password reset error:", error)
+      alert(error.message || "Failed to send reset email")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isEmailSent) {
