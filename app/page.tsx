@@ -38,6 +38,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface Task {
   id: string
@@ -136,6 +137,8 @@ export default function IntelliTaskDashboard() {
   const [newListName, setNewListName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
 
+  const { user } = useAuth()
+
   const currentList = taskLists.find((list) => list.id === selectedList)
 
   // Calculate overall progress instead of just today's tasks
@@ -224,8 +227,62 @@ export default function IntelliTaskDashboard() {
   }
 
   const handleCalendarSync = async () => {
-    // This would integrate with Google Calendar API
-    alert("Google Calendar integration requires backend setup. See implementation details below.")
+    if (!user) return
+
+    try {
+      // First, get the Google OAuth URL
+      const authResponse = await fetch(`/api/calendar/auth?userId=${user.uid}`)
+      const { authUrl } = await authResponse.json()
+
+      if (authUrl) {
+        // Open Google OAuth in a popup
+        const popup = window.open(authUrl, "google-calendar-auth", "width=500,height=600")
+
+        // Listen for the popup to close
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed)
+            // Check if authentication was successful
+            const urlParams = new URLSearchParams(window.location.search)
+            if (urlParams.get("calendar_connected") === "true") {
+              alert("Google Calendar connected successfully!")
+              // Trigger sync
+              syncTasks()
+            }
+          }
+        }, 1000)
+      }
+    } catch (error) {
+      console.error("Calendar auth error:", error)
+      alert("Failed to connect to Google Calendar")
+    }
+  }
+
+  const syncTasks = async () => {
+    if (!user) return
+
+    try {
+      const response = await fetch("/api/calendar/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          // You'll need to get these from the stored tokens
+          accessToken: "stored_access_token",
+          refreshToken: "stored_refresh_token",
+        }),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        alert(`Successfully synced ${result.syncedTasks} tasks to Google Calendar!`)
+      }
+    } catch (error) {
+      console.error("Sync error:", error)
+      alert("Failed to sync tasks to calendar")
+    }
   }
 
   const handleLogout = () => {
