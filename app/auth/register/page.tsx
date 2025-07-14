@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Target, Mail, Lock, Eye, EyeOff, User } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -24,6 +25,8 @@ export default function RegisterPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  const { register, loginWithGoogle } = useAuth()
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.password !== formData.confirmPassword) {
@@ -36,17 +39,26 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true)
-    // Simulate registration process
-    setTimeout(() => {
-      setIsLoading(false)
-      // Redirect to dashboard
+
+    try {
+      await register(formData.email, formData.password, formData.name)
       window.location.href = "/"
-    }, 1000)
+    } catch (error: any) {
+      console.error("Registration error:", error)
+      alert(error.message || "Registration failed")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleGoogleSignup = () => {
-    // Handle Google OAuth signup
-    console.log("Google signup")
+  const handleGoogleSignup = async () => {
+    try {
+      await loginWithGoogle()
+      window.location.href = "/"
+    } catch (error: any) {
+      console.error("Google signup error:", error)
+      alert(error.message || "Google signup failed")
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {

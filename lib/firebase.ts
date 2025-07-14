@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
+import { getMessaging, isSupported } from "firebase/messaging"
 
 const firebaseConfig = {
   apiKey: "AIzaSyCTIl8CjsxoepXtr_irYHoPq9En_7v6_VY",
@@ -19,5 +20,8 @@ export const auth = getAuth(app)
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app)
+
+// Initialize Firebase Messaging (only in browser environment)
+export const messaging = typeof window !== "undefined" && isSupported() ? getMessaging(app) : null
 
 export default app
