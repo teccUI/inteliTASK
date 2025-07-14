@@ -82,8 +82,8 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # NextAuth
-NEXTAUTH_SECRET=72502f0e2758434c73f483885dc82acf
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_next_auth_secret
+NEXTAUTH_URL=your_next_auth_url
 
 # Push Notifications
 NEXT_PUBLIC_VAPID_KEY=your_vapid_key
