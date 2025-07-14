@@ -41,6 +41,7 @@ import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { usePushNotifications } from "@/hooks/usePushNotifications"
+import IntegrationStatus from "@/components/IntegrationStatus"
 
 interface Task {
   id: string
@@ -441,6 +442,9 @@ export default function IntelliTaskDashboard() {
                     ))}
                   </CardContent>
                 </Card>
+
+                {/* Integration Status */}
+                <IntegrationStatus />
               </div>
             </div>
 
