@@ -1,7 +1,7 @@
-import { initializeApp } from "firebase/app"
+import { initializeApp, getApps, getApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
-import { getMessaging, isSupported } from "firebase/messaging"
+import { getMessaging } from "firebase/messaging"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,16 +12,10 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+// Initialize Firebase for client-side
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
+const auth = getAuth(app)
+const db = getFirestore(app)
+const messaging = typeof window !== "undefined" && getMessaging(app) // Only initialize messaging in browser
 
-// Initialize Firebase Authentication and get a reference to the service
-export const auth = getAuth(app)
-
-// Initialize Cloud Firestore and get a reference to the service
-export const db = getFirestore(app)
-
-// Initialize Firebase Messaging (only in browser environment)
-export const messaging = typeof window !== "undefined" && isSupported() ? getMessaging(app) : null
-
-export default app
+export { app, auth, db, messaging }

@@ -1,19 +1,32 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app"
-import { getMessaging } from "firebase-admin/messaging"
-import { getFirestore } from "firebase-admin/firestore"
+import * as admin from "firebase-admin"
 
-const firebaseAdminConfig = {
-  credential: cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  }),
-  projectId: process.env.FIREBASE_PROJECT_ID,
+// Check if Firebase Admin app is already initialized
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      }),
+    })
+  } catch (error: any) {
+    console.error("Firebase Admin initialization error:", error.stack)
+    // Log specific error details for debugging
+    if (error.code === "app/duplicate-app") {
+      console.warn("Firebase Admin app already initialized. This might happen in hot-reloading environments.")
+    } else if (error.code === "auth/invalid-credential") {
+      console.error(
+        "Firebase Admin: Invalid credentials. Check FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, FIREBASE_PROJECT_ID.",
+      )
+    } else {
+      console.error("Firebase Admin: Unknown initialization error.", error)
+    }
+  }
 }
 
-// Initialize Firebase Admin SDK
-const app = getApps().length === 0 ? initializeApp(firebaseAdminConfig) : getApps()[0]
+const db = admin.firestore()
+const auth = admin.auth()
+const messaging = admin.messaging()
 
-export const messaging = getMessaging(app)
-export const adminDb = getFirestore(app)
-export default app
+export { db, auth, messaging }
