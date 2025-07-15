@@ -1,6 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.NEXTAUTH_URL}/api/calendar/callback`,
+)
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -10,16 +16,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXTAUTH_URL}/api/calendar/callback`,
-    )
-
+    // Generate the URL for Google OAuth
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       scope: ["https://www.googleapis.com/auth/calendar"],
-      state: userId,
+      state: userId, // Pass userId in state parameter
     })
 
     return NextResponse.json({ authUrl })

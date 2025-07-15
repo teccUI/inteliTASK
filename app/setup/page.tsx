@@ -1,241 +1,209 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Target } from "lucide-react"
+import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import IntegrationStatus from "@/components/IntegrationStatus"
 
-interface HealthStatus {
+interface HealthCheckResult {
   timestamp: string
-  status: string
+  status: "healthy" | "degraded" | "unhealthy"
   services: {
-    [key: string]: {
-      status: string
-      message: string
-    }
+    firebase: { status: string; message: string }
+    googleCalendar: { status: string; message: string }
+    pushNotifications: { status: string; message: string }
+    authentication: { status: string; message: string; details?: any }
   }
   environment: {
-    [key: string]: boolean | string
+    nodeEnv: string
+    nextAuthConfigured: boolean
+    googleClientConfigured: boolean
+    vapidConfigured: boolean
+  }
+}
+
+interface IntegrationTestResult {
+  timestamp: string
+  overall: "success" | "partial" | "failure"
+  tests: {
+    firebase: { status: string; message: string; details: any }
+    googleCalendar: { status: string; message: string; details: any }
+    pushNotifications: { status: string; message: string; details: any }
+    authentication: { status: string; message: string; details: any }
   }
 }
 
 export default function SetupPage() {
-  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [healthCheck, setHealthCheck] = useState<HealthCheckResult | null>(null)
+  const [integrationTest, setIntegrationTest] = useState<IntegrationTestResult | null>(null)
+  const [loadingHealth, setLoadingHealth] = useState(true)
+  const [loadingIntegration, setLoadingIntegration] = useState(false)
 
-  const fetchHealthStatus = async () => {
-    setLoading(true)
+  useEffect(() => {
+    fetchHealthCheck()
+  }, [])
+
+  const fetchHealthCheck = async () => {
+    setLoadingHealth(true)
     try {
       const response = await fetch("/api/health")
       const data = await response.json()
-      setHealthStatus(data)
+      setHealthCheck(data)
     } catch (error) {
-      console.error("Failed to fetch health status:", error)
+      console.error("Failed to fetch health check:", error)
+      setHealthCheck(null)
     } finally {
-      setLoading(false)
+      setLoadingHealth(false)
     }
   }
 
-  useEffect(() => {
-    fetchHealthStatus()
-  }, [])
+  const runIntegrationTests = async () => {
+    setLoadingIntegration(true)
+    try {
+      const response = await fetch("/api/integrations/test", { method: "POST" })
+      const data = await response.json()
+      setIntegrationTest(data)
+    } catch (error) {
+      console.error("Failed to run integration tests:", error)
+      setIntegrationTest(null)
+    } finally {
+      setLoadingIntegration(false)
+    }
+  }
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "healthy":
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />
-      case "error":
-        return <XCircle className="w-5 h-5 text-red-500" />
-      case "warning":
-        return <AlertTriangle className="w-5 h-5 text-yellow-500" />
-      default:
-        return <AlertTriangle className="w-5 h-5 text-gray-400" />
+    if (status === "healthy" || status === "success") {
+      return <CheckCircle className="h-5 w-5 text-green-500" />
+    } else if (status === "warning" || status === "partial") {
+      return <AlertTriangle className="h-5 w-5 text-yellow-500" />
+    } else {
+      return <XCircle className="h-5 w-5 text-red-500" />
     }
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "healthy":
-        return <Badge className="bg-green-100 text-green-800">Healthy</Badge>
-      case "error":
-        return <Badge variant="destructive">Error</Badge>
-      case "warning":
-        return <Badge className="bg-yellow-100 text-yellow-800">Warning</Badge>
-      default:
-        return <Badge variant="secondary">Unknown</Badge>
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking system health...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Target className="w-5 h-5 text-white" />
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold">Application Setup & Health</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            System Health Check{" "}
+            {loadingHealth ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              getStatusIcon(healthCheck?.status || "unknown")
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {healthCheck ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Last checked: {new Date(healthCheck.timestamp).toLocaleString()}
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <IntegrationStatus
+                  name="Firebase Admin SDK"
+                  status={healthCheck.services.firebase.status}
+                  message={healthCheck.services.firebase.message}
+                />
+                <IntegrationStatus
+                  name="Google Calendar API"
+                  status={healthCheck.services.googleCalendar.status}
+                  message={healthCheck.services.googleCalendar.message}
+                />
+                <IntegrationStatus
+                  name="Push Notifications"
+                  status={healthCheck.services.pushNotifications.status}
+                  message={healthCheck.services.pushNotifications.message}
+                />
+                <IntegrationStatus
+                  name="Authentication"
+                  status={healthCheck.services.authentication.status}
+                  message={healthCheck.services.authentication.message}
+                  details={healthCheck.services.authentication.details}
+                />
+              </div>
+              <div className="mt-4 space-y-2">
+                <h3 className="text-lg font-semibold">Environment Variables</h3>
+                <p className="text-sm">
+                  `NEXTAUTH_SECRET`: {healthCheck.environment.nextAuthConfigured ? "Configured" : "Missing"}
+                </p>
+                <p className="text-sm">
+                  `GOOGLE_CLIENT_ID`/`SECRET`:{" "}
+                  {healthCheck.environment.googleClientConfigured ? "Configured" : "Missing"}
+                </p>
+                <p className="text-sm">
+                  `NEXT_PUBLIC_VAPID_KEY`: {healthCheck.environment.vapidConfigured ? "Configured" : "Missing"}
+                </p>
+              </div>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">IntelliTask Setup</h1>
-          </div>
-          <Button onClick={fetchHealthStatus} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+          ) : (
+            <p className="text-muted-foreground">Failed to load health check data.</p>
+          )}
+          <Button onClick={fetchHealthCheck} className="mt-4" disabled={loadingHealth}>
+            {loadingHealth ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Refresh Health Check
           </Button>
-        </div>
-      </header>
+        </CardContent>
+      </Card>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="space-y-6">
-          {/* Overall Status */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    {healthStatus && getStatusIcon(healthStatus.status)}
-                    <span>System Status</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Last checked: {healthStatus ? new Date(healthStatus.timestamp).toLocaleString() : "Never"}
-                  </CardDescription>
-                </div>
-                {healthStatus && getStatusBadge(healthStatus.status)}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Integration Tests{" "}
+            {loadingIntegration ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              integrationTest && getStatusIcon(integrationTest.overall)
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Run a series of tests to verify external integrations are working.
+          </p>
+          <Button onClick={runIntegrationTests} className="mt-4" disabled={loadingIntegration}>
+            {loadingIntegration ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Run Integration Tests
+          </Button>
+          {integrationTest && (
+            <div className="mt-6 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Last run: {new Date(integrationTest.timestamp).toLocaleString()}
+              </p>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <IntegrationStatus
+                  name="Firebase Admin SDK Test"
+                  status={integrationTest.tests.firebase.status}
+                  message={integrationTest.tests.firebase.message}
+                  details={integrationTest.tests.firebase.details}
+                />
+                <IntegrationStatus
+                  name="Google Calendar API Test"
+                  status={integrationTest.tests.googleCalendar.status}
+                  message={integrationTest.tests.googleCalendar.message}
+                  details={integrationTest.tests.googleCalendar.details}
+                />
+                <IntegrationStatus
+                  name="Push Notifications Test"
+                  status={integrationTest.tests.pushNotifications.status}
+                  message={integrationTest.tests.pushNotifications.message}
+                  details={integrationTest.tests.pushNotifications.details}
+                />
+                <IntegrationStatus
+                  name="Authentication Test"
+                  status={integrationTest.tests.authentication.status}
+                  message={integrationTest.tests.authentication.message}
+                  details={integrationTest.tests.authentication.details}
+                />
               </div>
-            </CardHeader>
-          </Card>
-
-          {/* Services Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Services Health Check</CardTitle>
-              <CardDescription>Status of all integrated services and APIs</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {healthStatus?.services &&
-                Object.entries(healthStatus.services).map(([service, details]) => (
-                  <div key={service} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {getStatusIcon(details.status)}
-                      <div>
-                        <h4 className="font-medium capitalize">{service.replace(/([A-Z])/g, " $1").trim()}</h4>
-                        <p className="text-sm text-gray-500">{details.message}</p>
-                      </div>
-                    </div>
-                    {getStatusBadge(details.status)}
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
-
-          {/* Environment Configuration */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Environment Configuration</CardTitle>
-              <CardDescription>Configuration status of environment variables and settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {healthStatus?.environment &&
-                Object.entries(healthStatus.environment).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {typeof value === "boolean" ? (
-                        value ? (
-                          <CheckCircle2 className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-red-500" />
-                        )
-                      ) : (
-                        <CheckCircle2 className="w-5 h-5 text-blue-500" />
-                      )}
-                      <div>
-                        <h4 className="font-medium">
-                          {key
-                            .replace(/([A-Z])/g, " $1")
-                            .replace(/^./, (str) => str.toUpperCase())
-                            .trim()}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          {typeof value === "boolean" ? (value ? "Configured" : "Not configured") : String(value)}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant={typeof value === "boolean" ? (value ? "default" : "destructive") : "secondary"}>
-                      {typeof value === "boolean" ? (value ? "✓" : "✗") : String(value)}
-                    </Badge>
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
-
-          {/* Setup Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Setup Instructions</CardTitle>
-              <CardDescription>Follow these steps to complete your IntelliTask setup</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                    1
-                  </div>
-                  <div>
-                    <h4 className="font-medium">Create .env.local file</h4>
-                    <p className="text-sm text-gray-500">
-                      Copy the .env.example file to .env.local and fill in all the required values
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                    2
-                  </div>
-                  <div>
-                    <h4 className="font-medium">Install Dependencies</h4>
-                    <p className="text-sm text-gray-500">Run `npm install` to install all required packages</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
-                    3
-                  </div>
-                  <div>
-                    <h4 className="font-medium">Start Development Server</h4>
-                    <p className="text-sm text-gray-500">Run `npm run dev` to start the application</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">
-                    ✓
-                  </div>
-                  <div>
-                    <h4 className="font-medium">Ready to Use!</h4>
-                    <p className="text-sm text-gray-500">
-                      Your IntelliTask application is ready. Visit{" "}
-                      <a href="/" className="text-blue-600 hover:underline">
-                        the dashboard
-                      </a>{" "}
-                      to get started.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

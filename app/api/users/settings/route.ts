@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebase-admin"
+import { db } from "@/lib/firebase"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,10 +11,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    const userRef = adminDb.collection("users").doc(userId)
-    const userDoc = await userRef.get()
+    const userRef = doc(db, "users", userId)
+    const userDoc = await getDoc(userRef)
 
-    if (!userDoc.exists) {
+    if (!userDoc.exists()) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -54,14 +55,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    const userRef = adminDb.collection("users").doc(userId)
-    const doc = await userRef.get()
+    const userRef = doc(db, "users", userId)
 
-    if (!doc.exists) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    await userRef.update({
+    await updateDoc(userRef, {
       settings,
       updatedAt: new Date(),
     })

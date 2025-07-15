@@ -1,51 +1,70 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  Plus,
-  Calendar,
-  Share2,
-  MoreVertical,
-  Edit,
-  Trash2,
-  CheckCircle2,
-  Circle,
-  User,
-  LogOut,
-  Settings,
-  Bell,
-  Search,
-  CalendarDays,
-  Target,
-  TrendingUp,
-} from "lucide-react"
+
 import Link from "next/link"
+
+import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { CalendarDays, CheckCircle, ListTodo, XCircle } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2 } from "lucide-react"
 import ProtectedRoute from "@/components/ProtectedRoute"
-import { usePushNotifications } from "@/hooks/usePushNotifications"
 import IntegrationStatus from "@/components/IntegrationStatus"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import type { Task, TaskList } from "@/types"
+import { usePushNotifications } from "@/components/usePushNotifications"
+import { Target } from "lucide-react"
+import {
+  Input,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  Badge,
+} from "@/components/ui"
+
+interface AnalyticsOverview {
+  totalTasks: number
+  completedTasks: number
+  pendingTasks: number
+  overdueTasks: number
+  completionRate: number
+}
+
+interface AnalyticsPeriod {
+  tasksCreated: number
+  tasksCompleted: number
+  period: string
+}
+
+interface AnalyticsTrend {
+  _id: string // Date string e.g., "2023-10-26"
+  count: number
+}
+
+interface AnalyticsData {
+  overview: AnalyticsOverview
+  period: AnalyticsPeriod
+  trend: AnalyticsTrend[]
+}
 
 export default function IntelliTaskDashboard() {
+  const { user, logout } = useAuth()
+  const { sendNotification } = usePushNotifications()
   const [taskLists, setTaskLists] = useState<TaskList[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedList, setSelectedList] = useState<string>("")
@@ -56,9 +75,8 @@ export default function IntelliTaskDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const { user, logout } = useAuth()
-  const { sendNotification } = usePushNotifications()
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [syncingCalendar, setSyncingCalendar] = useState(false)
 
   // Fetch task lists
   useEffect(() => {
@@ -105,13 +123,64 @@ export default function IntelliTaskDashboard() {
     fetchTasks()
   }, [user, selectedList])
 
-  const currentList = taskLists.find((list) => list.id === selectedList)
-  const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
+  useEffect(() => {
+    if (user) {
+      fetchAnalytics()
+    }
+  }, [user])
 
-  // Calculate progress
-  const allTasks = tasks
-  const completedTasks = allTasks.filter((task) => task.completed)
-  const dailyProgress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0
+  const fetchAnalytics = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/analytics?userId=${user?.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics")
+      }
+      const data = await response.json()
+      setAnalytics(data)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load dashboard analytics.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCalendarSync = async () => {
+    if (!user) return
+
+    setSyncingCalendar(true)
+    try {
+      const response = await fetch("/api/calendar/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to sync Google Calendar")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Calendar Sync Complete",
+        description: `Successfully synced ${data.syncedTasks} tasks to Google Calendar.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync Google Calendar.",
+        variant: "destructive",
+      })
+    } finally {
+      setSyncingCalendar(false)
+    }
+  }
 
   const addTask = async () => {
     if (!newTask.title.trim() || !user || !selectedList) return
@@ -228,7 +297,7 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  const filteredTasks = currentTasks.filter(
+  const filteredTasks = tasks.filter(
     (task) =>
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -251,62 +320,6 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  const handleCalendarSync = async () => {
-    if (!user) return
-
-    try {
-      // First, get the Google OAuth URL
-      const authResponse = await fetch(`/api/calendar/auth?userId=${user.uid}`)
-      const { authUrl } = await authResponse.json()
-
-      if (authUrl) {
-        // Open Google OAuth in a popup
-        const popup = window.open(authUrl, "google-calendar-auth", "width=500,height=600")
-
-        // Listen for the popup to close
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed)
-            // Check if authentication was successful
-            const urlParams = new URLSearchParams(window.location.search)
-            if (urlParams.get("calendar_connected") === "true") {
-              alert("Google Calendar connected successfully!")
-              // Trigger sync
-              syncTasks()
-            }
-          }
-        }, 1000)
-      }
-    } catch (error) {
-      console.error("Calendar auth error:", error)
-      alert("Failed to connect to Google Calendar")
-    }
-  }
-
-  const syncTasks = async () => {
-    if (!user) return
-
-    try {
-      const response = await fetch("/api/calendar/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-        }),
-      })
-
-      const result = await response.json()
-      if (result.success) {
-        alert(`Successfully synced ${result.syncedTasks} tasks to Google Calendar!`)
-      }
-    } catch (error) {
-      console.error("Sync error:", error)
-      alert("Failed to sync tasks to calendar")
-    }
-  }
-
   const handleLogout = async () => {
     try {
       await logout()
@@ -314,6 +327,14 @@ export default function IntelliTaskDashboard() {
       console.error("Logout error:", error)
     }
   }
+
+  const currentList = taskLists.find((list) => list.id === selectedList)
+  const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
+
+  // Calculate progress
+  const allTasks = tasks
+  const completedTasks = allTasks.filter((task) => task.completed)
+  const dailyProgress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0
 
   if (loading) {
     return (
@@ -357,7 +378,7 @@ export default function IntelliTaskDashboard() {
 
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <CalendarDays className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <Input
                   placeholder="Search tasks..."
                   value={searchQuery}
@@ -367,7 +388,7 @@ export default function IntelliTaskDashboard() {
               </div>
 
               <Button variant="ghost" size="icon">
-                <Bell className="w-5 h-5" />
+                <XCircle className="w-5 h-5" />
               </Button>
 
               <DropdownMenu>
@@ -382,18 +403,18 @@ export default function IntelliTaskDashboard() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuItem asChild>
                     <Link href="/profile">
-                      <User className="mr-2 h-4 w-4" />
+                      <ListTodo className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/settings">
-                      <Settings className="mr-2 h-4 w-4" />
+                      <CheckCircle className="mr-2 h-4 w-4" />
                       <span>Settings</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <XCircle className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -411,7 +432,7 @@ export default function IntelliTaskDashboard() {
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center">
-                      <TrendingUp className="w-4 h-4 mr-2" />
+                      <CalendarDays className="w-4 h-4 mr-2" />
                       Today's Progress
                     </CardTitle>
                   </CardHeader>
@@ -437,7 +458,7 @@ export default function IntelliTaskDashboard() {
                       <Dialog open={isNewListOpen} onOpenChange={setIsNewListOpen}>
                         <DialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <Plus className="w-4 h-4" />
+                            <ListTodo className="w-4 h-4" />
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
@@ -508,18 +529,18 @@ export default function IntelliTaskDashboard() {
                   <div className="flex items-center space-x-2">
                     {selectedList && (
                       <Button variant="outline" size="sm" onClick={() => handleShare(selectedList)}>
-                        <Share2 className="w-4 h-4 mr-2" />
+                        <ListTodo className="w-4 h-4 mr-2" />
                         Share
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={handleCalendarSync}>
-                      <Calendar className="w-4 h-4 mr-2" />
+                    <Button variant="outline" size="sm" onClick={handleCalendarSync} disabled={syncingCalendar}>
+                      {syncingCalendar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Sync Calendar
                     </Button>
                     <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
                       <DialogTrigger asChild>
                         <Button size="sm" disabled={!selectedList}>
-                          <Plus className="w-4 h-4 mr-2" />
+                          <ListTodo className="w-4 h-4 mr-2" />
                           Add Task
                         </Button>
                       </DialogTrigger>
@@ -545,7 +566,7 @@ export default function IntelliTaskDashboard() {
                             <Label htmlFor="description" className="text-right">
                               Description
                             </Label>
-                            <Textarea
+                            <Input
                               id="description"
                               value={newTask.description}
                               onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))}
@@ -579,7 +600,7 @@ export default function IntelliTaskDashboard() {
                   {filteredTasks.length === 0 ? (
                     <Card>
                       <CardContent className="flex flex-col items-center justify-center py-12">
-                        <CheckCircle2 className="w-12 h-12 text-gray-300 mb-4" />
+                        <CheckCircle className="w-12 h-12 text-gray-300 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
                         <p className="text-gray-500 text-center mb-4">
                           {searchQuery
@@ -590,7 +611,7 @@ export default function IntelliTaskDashboard() {
                         </p>
                         {!searchQuery && selectedList && (
                           <Button onClick={() => setIsNewTaskOpen(true)}>
-                            <Plus className="w-4 h-4 mr-2" />
+                            <ListTodo className="w-4 h-4 mr-2" />
                             Add Task
                           </Button>
                         )}
@@ -603,9 +624,9 @@ export default function IntelliTaskDashboard() {
                           <div className="flex items-start space-x-3">
                             <button onClick={() => toggleTask(task.id)} className="mt-1 flex-shrink-0">
                               {task.completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                <CheckCircle className="w-5 h-5 text-green-500" />
                               ) : (
-                                <Circle className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                                <XCircle className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                               )}
                             </button>
 
@@ -635,16 +656,16 @@ export default function IntelliTaskDashboard() {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="w-4 h-4" />
+                                  <XCircle className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem>
-                                  <Edit className="mr-2 h-4 w-4" />
+                                  <ListTodo className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => deleteTask(task.id)} className="text-red-600">
-                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <XCircle className="mr-2 h-4 w-4" />
                                   Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -655,6 +676,81 @@ export default function IntelliTaskDashboard() {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Analytics */}
+            <div className="lg:col-span-4">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+                    <ListTodo className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics?.overview.totalTasks ?? 0}</div>
+                    <p className="text-xs text-muted-foreground">All tasks created</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics?.overview.completedTasks ?? 0}</div>
+                    <p className="text-xs text-muted-foreground">Tasks marked as done</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics?.overview.pendingTasks ?? 0}</div>
+                    <p className="text-xs text-muted-foreground">Tasks not yet completed</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+                    <XCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{analytics?.overview.overdueTasks ?? 0}</div>
+                    <p className="text-xs text-muted-foreground">Tasks past their due date</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="mt-6 grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Completion Rate</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <Progress value={analytics?.overview.completionRate ?? 0} className="h-2 flex-1" />
+                      <span className="text-sm font-medium">{analytics?.overview.completionRate ?? 0}%</span>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Percentage of tasks completed out of total tasks.
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    <Button onClick={handleCalendarSync} disabled={syncingCalendar}>
+                      {syncingCalendar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Sync Google Calendar
+                    </Button>
+                    <Button variant="outline">View All Tasks</Button>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>

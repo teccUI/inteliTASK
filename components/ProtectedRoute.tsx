@@ -2,37 +2,33 @@
 
 import type React from "react"
 
-import { useAuth } from "@/contexts/AuthContext"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { useAuth } from "@/contexts/AuthContext"
+import Loading from "@/app/loading"
 
-interface ProtectedRouteProps {
-  children: React.ReactNode
-}
+const publicPaths = ["/auth/login", "/auth/register", "/auth/forgot-password", "/setup"]
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login")
+    if (!loading) {
+      const isPublicPath = publicPaths.includes(pathname)
+
+      if (!user && !isPublicPath) {
+        router.push("/auth/login")
+      } else if (user && isPublicPath && pathname !== "/setup") {
+        // If logged in and trying to access auth pages, redirect to dashboard
+        router.push("/")
+      }
     }
-  }, [user, loading, router])
+  }, [user, loading, pathname, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
+  if (loading || (!user && !publicPaths.includes(pathname))) {
+    return <Loading />
   }
 
   return <>{children}</>

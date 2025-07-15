@@ -1,71 +1,67 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { adminDb, messaging } from "@/lib/firebase-admin"
+import clientPromise from "@/lib/mongodb"
+import { messaging } from "@/lib/firebase-admin"
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await request.json()
+    const client = await clientPromise
+    const db = client.db("intellitask")
+    const tasks = db.collection("tasks")
+    const users = db.collection("users")
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
+    // Get tasks due in the next 24 hours
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
 
-    // Get user's tasks that are due today or overdue
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const tasksRef = adminDb.collection("tasks")
-    const querySnapshot = await tasksRef.where("userId", "==", userId).where("completed", "==", false).get()
-
-    const dueTasks = querySnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((task) => {
-        if (!task.dueDate) return false
-        const dueDate = new Date(task.dueDate)
-        dueDate.setHours(0, 0, 0, 0)
-        return dueDate <= today
+    const upcomingTasks = await tasks
+      .find({
+        dueDate: {
+          $gte: new Date().toISOString().split("T")[0],
+          $lte: tomorrow.toISOString().split("T")[0],
+        },
+        completed: false,
       })
+      .toArray()
 
-    if (dueTasks.length === 0) {
-      return NextResponse.json({ message: "No due tasks found" })
+    const reminderResults = []
+
+    for (const task of upcomingTasks) {
+      const user = await users.findOne({ uid: task.userId })
+
+      if (user && user.fcmTokens && user.fcmTokens.length > 0) {
+        const message = {
+          notification: {
+            title: "Task Reminder",
+            body: `Don't forget: ${task.title} is due soon!`,
+          },
+          data: {
+            taskId: task._id.toString(),
+            type: "reminder",
+          },
+          tokens: user.fcmTokens,
+        }
+
+        try {
+          const response = await messaging.sendEachForMulticast(message)
+          reminderResults.push({
+            taskId: task._id,
+            userId: task.userId,
+            success: response.successCount,
+            failed: response.failureCount,
+          })
+        } catch (error) {
+          console.error(`Failed to send reminder for task ${task._id}:`, error)
+        }
+      }
     }
-
-    // Get user's FCM token
-    const userRef = adminDb.collection("users").doc(userId)
-    const userDoc = await userRef.get()
-
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    const userData = userDoc.data()
-    const fcmToken = userData?.fcmToken
-
-    if (!fcmToken) {
-      return NextResponse.json({ error: "User has no FCM token registered" }, { status: 400 })
-    }
-
-    // Send reminder notification
-    const message = {
-      notification: {
-        title: "Task Reminder",
-        body: `You have ${dueTasks.length} task(s) due today`,
-      },
-      data: {
-        type: "task_reminder",
-        taskCount: dueTasks.length.toString(),
-      },
-      token: fcmToken,
-    }
-
-    const response = await messaging.send(message)
 
     return NextResponse.json({
       success: true,
-      messageId: response,
-      remindersSent: dueTasks.length,
+      remindersProcessed: reminderResults.length,
+      results: reminderResults,
     })
   } catch (error) {
-    console.error("Error sending task reminders:", error)
-    return NextResponse.json({ error: "Failed to send reminders" }, { status: 500 })
+    console.error("Task reminder error:", error)
+    return NextResponse.json({ error: "Failed to process reminders" }, { status: 500 })
   }
 }

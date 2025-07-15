@@ -1,221 +1,149 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
+import type React from "react"
+
+import { useEffect, useState } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Target, ArrowLeft, Camera, Mail, User, Calendar, CheckCircle2, Clock, TrendingUp } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2 } from "lucide-react"
+
+interface UserProfile {
+  uid: string
+  email: string
+  name: string
+  avatar?: string
+  createdAt: string
+}
 
 export default function ProfilePage() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [profileData, setProfileData] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    joinDate: "January 2024",
-    avatar: "/placeholder.svg?height=100&width=100",
-  })
+  const { user, loading: authLoading } = useAuth()
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [name, setName] = useState("")
 
-  const [editData, setEditData] = useState(profileData)
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchProfile()
+    }
+  }, [user, authLoading])
 
-  // Mock statistics
-  const stats = {
-    totalTasks: 47,
-    completedTasks: 32,
-    activeLists: 5,
-    completionRate: 68,
+  const fetchProfile = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/users?uid=${user?.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch profile")
+      }
+      const data = await response.json()
+      setProfile(data)
+      setName(data.name || "")
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load profile.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSave = () => {
-    setProfileData(editData)
-    setIsEditing(false)
-    // Here you would typically save to backend
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !profile) return
+
+    setSaving(true)
+    try {
+      const response = await fetch("/api/users", {
+        method: "POST", // Using POST for update as per previous API design
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uid: user.uid, name, email: user.email }), // Only updating name for now
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to save profile")
+      }
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved.",
+      })
+      fetchProfile() // Re-fetch to ensure data consistency
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save profile.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleCancel = () => {
-    setEditData(profileData)
-    setIsEditing(false)
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (!user || !profile) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 text-center">
+        <h2 className="text-2xl font-bold">Profile Not Found</h2>
+        <p className="mt-2 text-muted-foreground">Please ensure you are logged in.</p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Dashboard</span>
-            </Link>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Target className="w-5 h-5 text-white" />
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold">Profile Settings</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Public Profile</CardTitle>
+          <CardDescription>This information will be displayed publicly.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={profile.avatar || "/placeholder-user.jpg"} alt={profile.name || "User Avatar"} />
+                <AvatarFallback>{profile.name ? profile.name[0] : "U"}</AvatarFallback>
+              </Avatar>
+              <div className="grid gap-1.5">
+                <h3 className="text-lg font-semibold">{profile.name}</h3>
+                <p className="text-sm text-muted-foreground">{profile.email}</p>
+                {/* Add button to change avatar if desired */}
+              </div>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">IntelliTask</h1>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profile Card */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Manage your account details and preferences</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Avatar Section */}
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <Avatar className="h-20 w-20">
-                      <AvatarImage src={profileData.avatar || "/placeholder.svg"} alt="Profile" />
-                      <AvatarFallback className="text-lg">
-                        {profileData.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isEditing && (
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-transparent"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{profileData.name}</h3>
-                    <p className="text-gray-500">{profileData.email}</p>
-                    <Badge variant="secondary" className="mt-1">
-                      Member since {profileData.joinDate}
-                    </Badge>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Form Fields */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <Input
-                          id="name"
-                          value={isEditing ? editData.name : profileData.name}
-                          onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
-                          className="pl-10"
-                          disabled={!isEditing}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <Input
-                          id="email"
-                          type="email"
-                          value={isEditing ? editData.email : profileData.email}
-                          onChange={(e) => setEditData((prev) => ({ ...prev, email: e.target.value }))}
-                          className="pl-10"
-                          disabled={!isEditing}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                {!isEditing ? (
-                  <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
-                ) : (
-                  <div className="flex space-x-2">
-                    <Button onClick={handleSave}>Save Changes</Button>
-                    <Button variant="outline" onClick={handleCancel}>
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-              </CardFooter>
-            </Card>
-          </div>
-
-          {/* Statistics Sidebar */}
-          <div className="space-y-6">
-            {/* Activity Stats */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Activity Overview</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    <span className="text-sm">Total Tasks</span>
-                  </div>
-                  <span className="font-semibold">{stats.totalTasks}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm">Completed</span>
-                  </div>
-                  <span className="font-semibold">{stats.completedTasks}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm">Active Lists</span>
-                  </div>
-                  <span className="font-semibold">{stats.activeLists}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-orange-500" />
-                    <span className="text-sm">Completion Rate</span>
-                  </div>
-                  <span className="font-semibold">{stats.completionRate}%</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Account Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Account Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Connect Google Calendar
-                </Button>
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Change Password
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-red-600 hover:text-red-700 bg-transparent"
-                >
-                  Delete Account
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your Name"
+                required
+              />
+            </div>
+            <Button type="submit" disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save Profile
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

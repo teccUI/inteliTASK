@@ -1,21 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { adminDb } from "@/lib/firebase-admin"
+import { db } from "@/lib/firebase"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 
 export async function POST(request: NextRequest) {
   try {
     const userData = await request.json()
-
-    if (!userData.uid || !userData.email) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    const userRef = adminDb.collection("users").doc(userData.uid)
+    const userRef = doc(db, "users", userData.uid)
 
     // Check if user already exists
-    const userDoc = await userRef.get()
+    const userDoc = await getDoc(userRef)
 
-    if (!userDoc.exists) {
-      await userRef.set({
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
         ...userData,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -38,14 +34,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })
     }
 
-    const userRef = adminDb.collection("users").doc(uid)
-    const userDoc = await userRef.get()
+    const userRef = doc(db, "users", uid)
+    const userDoc = await getDoc(userRef)
 
-    if (!userDoc.exists) {
+    if (!userDoc.exists()) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ id: userDoc.id, ...userDoc.data() })
+    return NextResponse.json(userDoc.data())
   } catch (error) {
     console.error("Error fetching user:", error)
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 })

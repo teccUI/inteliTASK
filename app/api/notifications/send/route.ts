@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { messaging, adminDb } from "@/lib/firebase-admin"
+import { messaging } from "@/lib/firebase-admin"
+import clientPromise from "@/lib/mongodb"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,35 +10,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    // Get user's FCM token
-    const userRef = adminDb.collection("users").doc(userId)
-    const userDoc = await userRef.get()
+    // Get user's FCM tokens from MongoDB
+    const client = await clientPromise
+    const db = client.db("intellitask")
+    const users = db.collection("users")
 
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const user = await users.findOne({ uid: userId })
+
+    if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
+      return NextResponse.json({ error: "No FCM tokens found for user" }, { status: 404 })
     }
 
-    const userData = userDoc.data()
-    const fcmToken = userData?.fcmToken
-
-    if (!fcmToken) {
-      return NextResponse.json({ error: "User has no FCM token registered" }, { status: 400 })
-    }
-
+    // Send notification to all user's devices
     const message = {
       notification: {
         title,
         body,
       },
       data: data || {},
-      token: fcmToken,
+      tokens: user.fcmTokens,
     }
 
-    const response = await messaging.send(message)
+    const response = await messaging.sendEachForMulticast(message)
 
-    return NextResponse.json({ success: true, messageId: response })
+    // Remove invalid tokens
+    const invalidTokens = []
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success) {
+        invalidTokens.push(user.fcmTokens[idx])
+      }
+    })
+
+    if (invalidTokens.length > 0) {
+      await users.updateOne(
+        { uid: userId },
+        {
+          $pull: { fcmTokens: { $in: invalidTokens } },
+        },
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    })
   } catch (error) {
-    console.error("Error sending notification:", error)
+    console.error("Push notification error:", error)
     return NextResponse.json({ error: "Failed to send notification" }, { status: 500 })
   }
 }

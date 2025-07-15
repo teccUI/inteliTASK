@@ -1,286 +1,216 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import {
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  RefreshCw,
-  Target,
-  Database,
-  Calendar,
-  Bell,
-  Shield,
-  Flame,
-  ArrowLeft,
-} from "lucide-react"
-import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2 } from "lucide-react"
 
-interface IntegrationTest {
-  status: string
-  message: string
-  details: any
-}
-
-interface IntegrationResults {
-  timestamp: string
-  overall: string
-  tests: {
-    [key: string]: IntegrationTest
+interface UserSettings {
+  notifications: {
+    email: boolean
+    push: boolean
+    taskReminders: boolean
+    weeklyDigest: boolean
+  }
+  integrations: {
+    googleCalendar: boolean
+    emailSync: boolean
   }
 }
 
 export default function IntegrationsPage() {
-  const [results, setResults] = useState<IntegrationResults | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { user } = useAuth()
+  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  const runIntegrationTests = async () => {
+  useEffect(() => {
+    if (user) {
+      fetchSettings()
+    }
+  }, [user])
+
+  const fetchSettings = async () => {
     setLoading(true)
     try {
-      const response = await fetch("/api/integrations/test", {
-        method: "POST",
-      })
+      const response = await fetch(`/api/users/settings?userId=${user?.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch settings")
+      }
       const data = await response.json()
-      setResults(data)
-    } catch (error) {
-      console.error("Failed to run integration tests:", error)
+      setSettings(data.settings)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load settings.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    runIntegrationTests()
-  }, [])
+  const handleSettingChange = (category: keyof UserSettings["integrations"], value: boolean) => {
+    setSettings((prev) => {
+      if (!prev) return null
+      return {
+        ...prev,
+        integrations: {
+          ...prev.integrations,
+          [category]: value,
+        },
+      }
+    })
+  }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "success":
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />
-      case "error":
-        return <XCircle className="w-5 h-5 text-red-500" />
-      case "warning":
-        return <AlertTriangle className="w-5 h-5 text-yellow-500" />
-      default:
-        return <AlertTriangle className="w-5 h-5 text-gray-400" />
+  const saveSettings = async () => {
+    if (!user || !settings) return
+
+    setSaving(true)
+    try {
+      const response = await fetch("/api/users/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid, settings }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to save settings")
+      }
+
+      toast({
+        title: "Settings Saved",
+        description: "Your integration settings have been updated.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "success":
-        return <Badge className="bg-green-100 text-green-800">✓ Working</Badge>
-      case "error":
-        return <Badge variant="destructive">✗ Failed</Badge>
-      case "warning":
-        return <Badge className="bg-yellow-100 text-yellow-800">⚠ Partial</Badge>
-      default:
-        return <Badge variant="secondary">? Unknown</Badge>
+  const handleGoogleCalendarConnect = async () => {
+    if (!user) return
+
+    try {
+      const response = await fetch(`/api/calendar/auth?userId=${user.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to get Google Auth URL")
+      }
+      const data = await response.json()
+      window.location.href = data.authUrl
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate Google Calendar connection.",
+        variant: "destructive",
+      })
     }
   }
 
-  const getServiceIcon = (service: string) => {
-    switch (service) {
-      case "mongodb":
-        return <Database className="w-6 h-6 text-green-600" />
-      case "firebase":
-        return <Flame className="w-6 h-6 text-orange-600" />
-      case "googleCalendar":
-        return <Calendar className="w-6 h-6 text-blue-600" />
-      case "pushNotifications":
-        return <Bell className="w-6 h-6 text-purple-600" />
-      case "authentication":
-        return <Shield className="w-6 h-6 text-indigo-600" />
-      default:
-        return <Target className="w-6 h-6 text-gray-600" />
+  const handleGoogleCalendarSync = async () => {
+    if (!user) return
+
+    try {
+      const response = await fetch("/api/calendar/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to sync Google Calendar")
+      }
+
+      const data = await response.json()
+      toast({
+        title: "Calendar Sync Complete",
+        description: `Successfully synced ${data.syncedTasks} tasks to Google Calendar.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync Google Calendar.",
+        variant: "destructive",
+      })
     }
   }
 
-  const getServiceName = (service: string) => {
-    const names = {
-      mongodb: "MongoDB Database",
-      firebase: "Firebase Admin SDK",
-      googleCalendar: "Google Calendar API",
-      pushNotifications: "Push Notifications",
-      authentication: "Authentication System",
-    }
-    return names[service as keyof typeof names] || service
-  }
-
-  const calculateOverallProgress = () => {
-    if (!results) return 0
-    const tests = Object.values(results.tests)
-    const successCount = tests.filter((test) => test.status === "success").length
-    return (successCount / tests.length) * 100
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Dashboard</span>
-            </Link>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold">Integrations</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Google Calendar</CardTitle>
+          <CardDescription>Connect and sync your tasks with Google Calendar.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="google-calendar-toggle">Enable Google Calendar Sync</Label>
+            <Switch
+              id="google-calendar-toggle"
+              checked={settings?.integrations.googleCalendar || false}
+              onCheckedChange={(checked) => handleSettingChange("googleCalendar", checked)}
+            />
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Target className="w-5 h-5 text-white" />
+          {settings?.integrations.googleCalendar && (
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleGoogleCalendarConnect}>Connect Google Account</Button>
+              <Button onClick={handleGoogleCalendarSync} variant="outline">
+                Sync Tasks Now
+              </Button>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Integration Tests</h1>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Email Sync</CardTitle>
+          <CardDescription>Integrate with your email to create tasks from emails.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="email-sync-toggle">Enable Email Sync</Label>
+            <Switch
+              id="email-sync-toggle"
+              checked={settings?.integrations.emailSync || false}
+              onCheckedChange={(checked) => handleSettingChange("emailSync", checked)}
+              disabled // Feature not yet implemented
+            />
           </div>
-        </div>
-      </header>
+          {settings?.integrations.emailSync && (
+            <p className="text-sm text-muted-foreground">Email sync feature coming soon!</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="space-y-6">
-          {/* Overall Status */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    {results && getStatusIcon(results.overall)}
-                    <span>Integration Status</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Last tested: {results ? new Date(results.timestamp).toLocaleString() : "Never"}
-                  </CardDescription>
-                </div>
-                <Button onClick={runIntegrationTests} disabled={loading}>
-                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  {loading ? "Testing..." : "Run Tests"}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Overall Progress</span>
-                  <span className="text-sm text-gray-500">{Math.round(calculateOverallProgress())}%</span>
-                </div>
-                <Progress value={calculateOverallProgress()} className="h-3" />
-                {results && <div className="flex justify-center">{getStatusBadge(results.overall)}</div>}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Integration Tests */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {results?.tests &&
-              Object.entries(results.tests).map(([service, test]) => (
-                <Card key={service} className="relative">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {getServiceIcon(service)}
-                        <div>
-                          <CardTitle className="text-lg">{getServiceName(service)}</CardTitle>
-                          <CardDescription className="text-sm">{test.message}</CardDescription>
-                        </div>
-                      </div>
-                      {getStatusIcon(test.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-center">{getStatusBadge(test.status)}</div>
-
-                      {test.details && (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-gray-700">Details:</h4>
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            {typeof test.details === "object" ? (
-                              <div className="space-y-1">
-                                {Object.entries(test.details).map(([key, value]) => (
-                                  <div key={key} className="flex justify-between text-xs">
-                                    <span className="text-gray-600 capitalize">
-                                      {key.replace(/([A-Z])/g, " $1").trim()}:
-                                    </span>
-                                    <span
-                                      className={`font-medium ${
-                                        typeof value === "boolean"
-                                          ? value
-                                            ? "text-green-600"
-                                            : "text-red-600"
-                                          : "text-gray-900"
-                                      }`}
-                                    >
-                                      {typeof value === "boolean" ? (value ? "✓" : "✗") : String(value)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-gray-600">{String(test.details)}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-
-          {/* Integration Guide */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Integration Setup Guide</CardTitle>
-              <CardDescription>Follow these steps to ensure all integrations are working correctly</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">Required Environment Variables</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>MONGODB_URI</span>
-                      <Badge variant={process.env.MONGODB_URI ? "default" : "destructive"}>
-                        {process.env.MONGODB_URI ? "✓" : "✗"}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>GOOGLE_CLIENT_ID</span>
-                      <Badge variant={process.env.GOOGLE_CLIENT_ID ? "default" : "destructive"}>
-                        {process.env.GOOGLE_CLIENT_ID ? "✓" : "✗"}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>NEXTAUTH_SECRET</span>
-                      <Badge variant={process.env.NEXTAUTH_SECRET ? "default" : "destructive"}>
-                        {process.env.NEXTAUTH_SECRET ? "✓" : "✗"}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>NEXT_PUBLIC_VAPID_KEY</span>
-                      <Badge variant={process.env.NEXT_PUBLIC_VAPID_KEY ? "default" : "destructive"}>
-                        {process.env.NEXT_PUBLIC_VAPID_KEY ? "✓" : "✗"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900">Quick Fixes</h4>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>• Ensure all environment variables are set in .env.local</p>
-                    <p>• Verify Firebase Admin SDK key is in lib/firebase-admin-key.json</p>
-                    <p>• Check Google Calendar API is enabled in GCP Console</p>
-                    <p>• Confirm MongoDB connection string is correct</p>
-                    <p>• Restart the development server after changes</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex justify-end">
+        <Button onClick={saveSettings} disabled={saving}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save Changes
+        </Button>
       </div>
     </div>
   )

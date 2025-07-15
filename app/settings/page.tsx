@@ -1,298 +1,263 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
+import { useEffect, useState } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { Target, ArrowLeft, Bell, Moon, Shield, Smartphone, Mail, Calendar, Trash2 } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2 } from "lucide-react"
+
+interface UserSettings {
+  notifications: {
+    email: boolean
+    push: boolean
+    taskReminders: boolean
+    weeklyDigest: boolean
+  }
+  appearance: {
+    theme: "light" | "dark" | "system"
+    language: string
+  }
+  privacy: {
+    shareAnalytics: boolean
+    publicProfile: boolean
+  }
+  integrations: {
+    googleCalendar: boolean
+    emailSync: boolean
+  }
+}
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    notifications: {
-      email: true,
-      push: false,
-      taskReminders: true,
-      weeklyDigest: true,
-    },
-    appearance: {
-      theme: "light",
-      language: "en",
-    },
-    privacy: {
-      shareAnalytics: false,
-      publicProfile: false,
-    },
-    integrations: {
-      googleCalendar: false,
-      emailSync: false,
-    },
-  })
+  const { user } = useAuth()
+  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  const updateSetting = (category: string, key: string, value: any) => {
-    setSettings((prev) => ({
-      ...prev,
-      [category]: {
-        ...prev[category as keyof typeof prev],
-        [key]: value,
-      },
-    }))
+  useEffect(() => {
+    if (user) {
+      fetchSettings()
+    }
+  }, [user])
+
+  const fetchSettings = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/users/settings?userId=${user?.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch settings")
+      }
+      const data = await response.json()
+      setSettings(data.settings)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSaveSettings = () => {
-    // Here you would save settings to backend
-    alert("Settings saved successfully!")
+  const handleNotificationChange = (category: keyof UserSettings["notifications"], value: boolean) => {
+    setSettings((prev) => {
+      if (!prev) return null
+      return {
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          [category]: value,
+        },
+      }
+    })
+  }
+
+  const handleAppearanceChange = (category: keyof UserSettings["appearance"], value: string) => {
+    setSettings((prev) => {
+      if (!prev) return null
+      return {
+        ...prev,
+        appearance: {
+          ...prev.appearance,
+          [category]: value,
+        },
+      }
+    })
+  }
+
+  const handlePrivacyChange = (category: keyof UserSettings["privacy"], value: boolean) => {
+    setSettings((prev) => {
+      if (!prev) return null
+      return {
+        ...prev,
+        privacy: {
+          ...prev.privacy,
+          [category]: value,
+        },
+      }
+    })
+  }
+
+  const saveSettings = async () => {
+    if (!user || !settings) return
+
+    setSaving(true)
+    try {
+      const response = await fetch("/api/users/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid, settings }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to save settings")
+      }
+
+      toast({
+        title: "Settings Saved",
+        description: "Your settings have been updated.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save settings.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back to Dashboard</span>
-            </Link>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold">Settings</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Notifications</CardTitle>
+          <CardDescription>Manage your notification preferences.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="email-notifications">Email Notifications</Label>
+            <Switch
+              id="email-notifications"
+              checked={settings?.notifications.email || false}
+              onCheckedChange={(checked) => handleNotificationChange("email", checked)}
+            />
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Target className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900">IntelliTask</h1>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="push-notifications">Push Notifications</Label>
+            <Switch
+              id="push-notifications"
+              checked={settings?.notifications.push || false}
+              onCheckedChange={(checked) => handleNotificationChange("push", checked)}
+            />
           </div>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500">Manage your account preferences and application settings</p>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="task-reminders">Task Reminders</Label>
+            <Switch
+              id="task-reminders"
+              checked={settings?.notifications.taskReminders || false}
+              onCheckedChange={(checked) => handleNotificationChange("taskReminders", checked)}
+            />
           </div>
-
-          {/* Notifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bell className="w-5 h-5 mr-2" />
-                Notifications
-              </CardTitle>
-              <CardDescription>Configure how and when you receive notifications</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Email Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive notifications via email</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.email}
-                  onCheckedChange={(checked) => updateSetting("notifications", "email", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Push Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive push notifications in your browser</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.push}
-                  onCheckedChange={(checked) => updateSetting("notifications", "push", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Task Reminders</Label>
-                  <p className="text-sm text-gray-500">Get reminded about upcoming due dates</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.taskReminders}
-                  onCheckedChange={(checked) => updateSetting("notifications", "taskReminders", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Weekly Digest</Label>
-                  <p className="text-sm text-gray-500">Receive a weekly summary of your progress</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.weeklyDigest}
-                  onCheckedChange={(checked) => updateSetting("notifications", "weeklyDigest", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Appearance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Moon className="w-5 h-5 mr-2" />
-                Appearance
-              </CardTitle>
-              <CardDescription>Customize the look and feel of your application</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Theme</Label>
-                  <Select
-                    value={settings.appearance.theme}
-                    onValueChange={(value) => updateSetting("appearance", "theme", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="light">Light</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="system">System</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Language</Label>
-                  <Select
-                    value={settings.appearance.language}
-                    onValueChange={(value) => updateSetting("appearance", "language", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
-                      <SelectItem value="de">German</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Integrations */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Smartphone className="w-5 h-5 mr-2" />
-                Integrations
-              </CardTitle>
-              <CardDescription>Connect IntelliTask with your favorite apps and services</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Calendar className="w-5 h-5 text-blue-500" />
-                  <div className="space-y-0.5">
-                    <Label>Google Calendar</Label>
-                    <p className="text-sm text-gray-500">Sync tasks with your Google Calendar</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={settings.integrations.googleCalendar}
-                  onCheckedChange={(checked) => updateSetting("integrations", "googleCalendar", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Mail className="w-5 h-5 text-green-500" />
-                  <div className="space-y-0.5">
-                    <Label>Email Sync</Label>
-                    <p className="text-sm text-gray-500">Create tasks from emails automatically</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={settings.integrations.emailSync}
-                  onCheckedChange={(checked) => updateSetting("integrations", "emailSync", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Privacy & Security */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="w-5 h-5 mr-2" />
-                Privacy & Security
-              </CardTitle>
-              <CardDescription>Control your privacy settings and account security</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Share Usage Analytics</Label>
-                  <p className="text-sm text-gray-500">Help improve IntelliTask by sharing anonymous usage data</p>
-                </div>
-                <Switch
-                  checked={settings.privacy.shareAnalytics}
-                  onCheckedChange={(checked) => updateSetting("privacy", "shareAnalytics", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Public Profile</Label>
-                  <p className="text-sm text-gray-500">Allow others to view your public profile</p>
-                </div>
-                <Switch
-                  checked={settings.privacy.publicProfile}
-                  onCheckedChange={(checked) => updateSetting("privacy", "publicProfile", checked)}
-                />
-              </div>
-              <Separator />
-              <div className="space-y-3">
-                <Label>Change Password</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input type="password" placeholder="Current password" />
-                  <Input type="password" placeholder="New password" />
-                </div>
-                <Button variant="outline" size="sm">
-                  Update Password
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Danger Zone */}
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle className="flex items-center text-red-600">
-                <Trash2 className="w-5 h-5 mr-2" />
-                Danger Zone
-              </CardTitle>
-              <CardDescription>Irreversible and destructive actions</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg">
-                <div>
-                  <h4 className="font-medium text-red-900">Delete Account</h4>
-                  <p className="text-sm text-red-600">Permanently delete your account and all data</p>
-                </div>
-                <Button variant="destructive" size="sm">
-                  Delete Account
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSaveSettings} className="px-8">
-              Save All Settings
-            </Button>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="weekly-digest">Weekly Digest</Label>
+            <Switch
+              id="weekly-digest"
+              checked={settings?.notifications.weeklyDigest || false}
+              onCheckedChange={(checked) => handleNotificationChange("weeklyDigest", checked)}
+            />
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Customize the look and feel of the application.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="theme">Theme</Label>
+            <Select
+              value={settings?.appearance.theme || "system"}
+              onValueChange={(value: "light" | "dark" | "system") => handleAppearanceChange("theme", value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select theme" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="dark">Dark</SelectItem>
+                <SelectItem value="system">System</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="language">Language</Label>
+            <Select
+              value={settings?.appearance.language || "en"}
+              onValueChange={(value) => handleAppearanceChange("language", value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="es">Spanish</SelectItem>
+                <SelectItem value="fr">French</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Privacy</CardTitle>
+          <CardDescription>Manage your privacy settings.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="share-analytics">Share Analytics Data</Label>
+            <Switch
+              id="share-analytics"
+              checked={settings?.privacy.shareAnalytics || false}
+              onCheckedChange={(checked) => handlePrivacyChange("shareAnalytics", checked)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="public-profile">Public Profile</Label>
+            <Switch
+              id="public-profile"
+              checked={settings?.privacy.publicProfile || false}
+              onCheckedChange={(checked) => handlePrivacyChange("publicProfile", checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={saveSettings} disabled={saving}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save Changes
+        </Button>
       </div>
     </div>
   )

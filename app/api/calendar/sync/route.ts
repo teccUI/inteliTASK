@@ -1,85 +1,101 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
-import { adminDb } from "@/lib/firebase-admin"
+import clientPromise from "@/lib/mongodb"
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.NEXTAUTH_URL}/api/calendar/callback`,
+)
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await request.json()
+    const { accessToken, refreshToken, userId } = await request.json()
 
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    if (!accessToken || !userId) {
+      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    // Get user's Google Calendar tokens
-    const userRef = adminDb.collection("users").doc(userId)
-    const userDoc = await userRef.get()
-
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    const userData = userDoc.data()
-    const tokens = userData?.googleCalendarTokens
-
-    if (!tokens) {
-      return NextResponse.json({ error: "Google Calendar not connected" }, { status: 400 })
-    }
-
-    // Set up OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXTAUTH_URL}/api/calendar/callback`,
-    )
-
+    // Set credentials
     oauth2Client.setCredentials({
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
-      expiry_date: tokens.expiryDate,
+      access_token: accessToken,
+      refresh_token: refreshToken,
     })
 
     const calendar = google.calendar({ version: "v3", auth: oauth2Client })
 
-    // Get user's incomplete tasks with due dates
-    const tasksRef = adminDb.collection("tasks")
-    const querySnapshot = await tasksRef.where("userId", "==", userId).where("completed", "==", false).get()
+    // Get user's tasks from MongoDB
+    const client = await clientPromise
+    const db = client.db("intellitask")
+    const tasks = db.collection("tasks")
 
-    const tasks = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((task) => task.dueDate)
+    const userTasks = await tasks.find({ userId, completed: false }).toArray()
 
-    let syncedTasks = 0
+    // Sync tasks to Google Calendar
+    const syncResults = []
 
-    // Create calendar events for tasks
-    for (const task of tasks) {
-      try {
-        const event = {
-          summary: task.title,
-          description: task.description || "",
-          start: {
-            date: task.dueDate,
-          },
-          end: {
-            date: task.dueDate,
-          },
+    for (const task of userTasks) {
+      if (task.dueDate && !task.calendarEventId) {
+        try {
+          const event = {
+            summary: task.title,
+            description: task.description,
+            start: {
+              dateTime: new Date(task.dueDate).toISOString(),
+              timeZone: "UTC",
+            },
+            end: {
+              dateTime: new Date(new Date(task.dueDate).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour duration
+              timeZone: "UTC",
+            },
+            reminders: {
+              useDefault: false,
+              overrides: [
+                { method: "email", minutes: 24 * 60 }, // 1 day before
+                { method: "popup", minutes: 60 }, // 1 hour before
+              ],
+            },
+          }
+
+          const response = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: event,
+          })
+
+          // Update task with calendar event ID
+          await tasks.updateOne(
+            { _id: task._id },
+            {
+              $set: {
+                calendarEventId: response.data.id,
+                updatedAt: new Date(),
+              },
+            },
+          )
+
+          syncResults.push({
+            taskId: task._id,
+            eventId: response.data.id,
+            status: "synced",
+          })
+        } catch (error) {
+          console.error(`Error syncing task ${task._id}:`, error)
+          syncResults.push({
+            taskId: task._id,
+            status: "error",
+            error: error.message,
+          })
         }
-
-        await calendar.events.insert({
-          calendarId: "primary",
-          requestBody: event,
-        })
-
-        syncedTasks++
-      } catch (eventError) {
-        console.error(`Error creating event for task ${task.id}:`, eventError)
       }
     }
 
     return NextResponse.json({
       success: true,
-      syncedTasks,
-      totalTasks: tasks.length,
+      syncedTasks: syncResults.length,
+      results: syncResults,
     })
   } catch (error) {
-    console.error("Error syncing calendar:", error)
+    console.error("Calendar sync error:", error)
     return NextResponse.json({ error: "Failed to sync calendar" }, { status: 500 })
   }
 }
