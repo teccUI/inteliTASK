@@ -1,75 +1,60 @@
-# IntelliTask - Smart Task Management Application
+# IntelliTask - Smart Task Management
 
-A modern, full-featured task management application built with Next.js, Firebase, and MongoDB.
+A modern, intelligent task management application built with Next.js, Firebase, and TypeScript.
 
-## 🚀 Features
+## Features
 
-### ✅ **Core Features**
-- **User Authentication** - Firebase Auth with email/password and Google OAuth
-- **Task Management** - Create, edit, delete, and organize tasks
-- **Task Lists** - Organize tasks into custom lists with color coding
-- **Real-time Sync** - Data synced across all devices
-- **Search & Filter** - Find tasks quickly with powerful search
+- 🔐 **Authentication**: Firebase Auth with Google OAuth
+- 📝 **Task Management**: Create, edit, delete, and organize tasks
+- 📋 **Task Lists**: Organize tasks into custom lists
+- 📅 **Calendar Integration**: Sync tasks with Google Calendar
+- 🔔 **Push Notifications**: Real-time notifications for task updates
+- 📊 **Analytics**: Track productivity and task completion rates
+- 🎨 **Modern UI**: Clean, responsive design with Tailwind CSS
+- 🌙 **Dark Mode**: Support for light/dark themes
+- 📱 **Mobile Responsive**: Works seamlessly on all devices
 
-### 🗓️ **Calendar Integration**
-- **Google Calendar Sync** - Automatically sync tasks to Google Calendar
-- **Due Date Reminders** - Get notified about upcoming deadlines
-- **Event Creation** - Tasks with due dates become calendar events
+## Tech Stack
 
-### 🔔 **Notifications**
-- **Push Notifications** - Browser push notifications for task reminders
-- **Email Notifications** - Task reminders and weekly digests
-- **Weekly Reports** - Progress summaries delivered weekly
-
-### 📊 **Analytics & Insights**
-- **Progress Tracking** - Visual progress indicators
-- **Completion Analytics** - Track your productivity over time
-- **Task Statistics** - Detailed insights into your task management
-
-### 🎨 **User Experience**
-- **Responsive Design** - Works perfectly on desktop and mobile
-- **Dark/Light Mode** - Theme preferences
-- **Customizable Settings** - Personalize your experience
-- **Shared Lists** - Share task lists with others
-
-## 🛠️ **Technology Stack**
-
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Node.js
-- **Database**: MongoDB
+- **Frontend**: Next.js 14, React 18, TypeScript
+- **Backend**: Next.js API Routes
+- **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth
-- **Push Notifications**: Firebase Cloud Messaging
-- **Calendar**: Google Calendar API
-- **UI Components**: Radix UI, shadcn/ui
+- **Styling**: Tailwind CSS, shadcn/ui
+- **Icons**: Lucide React
+- **Notifications**: Firebase Cloud Messaging
 
-## 📋 **Prerequisites**
+## Getting Started
+
+### Prerequisites
 
 - Node.js 18+ 
-- MongoDB database
-- Firebase project
-- Google Cloud Platform project with Calendar API enabled
+- pnpm 8+
+- Firebase project with Firestore and Authentication enabled
+- Google Cloud Console project for Calendar API
 
-## 🚀 **Quick Start**
+### Installation
 
-### 1. Clone the Repository
+1. Clone the repository:
 \`\`\`bash
-git clone <your-repo-url>
+git clone <repository-url>
 cd intellitask
 \`\`\`
 
-### 2. Install Dependencies
+2. Install dependencies:
 \`\`\`bash
-npm install
+pnpm install
 \`\`\`
 
-### 3. Environment Setup
-Copy `.env.example` to `.env.local` and fill in your credentials:
+3. Set up environment variables:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+4. Configure your environment variables in `.env.local`:
 
 \`\`\`env
-# MongoDB
-MONGODB_URI=your_mongodb_connection_string
-
-# Firebase
+# Firebase Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
@@ -77,111 +62,168 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
-# Google Calendar
+# Firebase Admin SDK
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_CLIENT_EMAIL=your_service_account_email
+FIREBASE_PRIVATE_KEY=your_private_key
+
+# Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # NextAuth
-NEXTAUTH_SECRET=your_next_auth_secret
-NEXTAUTH_URL=your_next_auth_url
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
 
 # Push Notifications
 NEXT_PUBLIC_VAPID_KEY=your_vapid_key
 \`\`\`
 
-### 4. Firebase Admin Setup
-Place your Firebase Admin SDK key file at `lib/firebase-admin-key.json`
-
-### 5. Start Development Server
+5. Run the development server:
 \`\`\`bash
-npm run dev
+pnpm dev
 \`\`\`
 
-Visit `http://localhost:3000` to see your application!
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 📁 **Project Structure**
+## Firebase Setup
+
+### 1. Create Firebase Project
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Create a new project
+3. Enable Firestore Database
+4. Enable Authentication with Google provider
+5. Enable Cloud Messaging
+
+### 2. Get Configuration
+
+1. Go to Project Settings > General
+2. Copy the Firebase config object
+3. Add values to your `.env.local` file
+
+### 3. Service Account
+
+1. Go to Project Settings > Service Accounts
+2. Generate new private key
+3. Add the values to your environment variables
+
+## Google Calendar Integration
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable Google Calendar API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URIs: `http://localhost:3000/api/calendar/callback`
+6. Add client ID and secret to environment variables
+
+## API Endpoints
+
+### Authentication
+- `POST /api/users` - Create/update user
+- `GET /api/users?uid={uid}` - Get user by UID
+
+### Task Management
+- `GET /api/tasks?uid={uid}&listId={listId}` - Get tasks
+- `POST /api/tasks` - Create task
+- `PUT /api/tasks` - Update task
+- `DELETE /api/tasks?id={id}` - Delete task
+
+### Task Lists
+- `GET /api/task-lists?uid={uid}` - Get task lists
+- `POST /api/task-lists` - Create task list
+- `PUT /api/task-lists` - Update task list
+- `DELETE /api/task-lists?id={id}` - Delete task list
+
+### Integrations
+- `GET /api/calendar/auth?userId={uid}` - Get Google OAuth URL
+- `GET /api/calendar/callback` - Handle OAuth callback
+- `POST /api/calendar/sync` - Sync tasks to calendar
+
+### Notifications
+- `POST /api/notifications/register` - Register FCM token
+- `POST /api/notifications/send` - Send notification
+- `POST /api/tasks/reminders` - Send task reminders
+- `POST /api/users/digest` - Send weekly digest
+
+### System
+- `GET /api/health` - Health check
+- `POST /api/integrations/test` - Test all integrations
+- `GET /api/analytics?userId={uid}&period={period}` - Get analytics
+
+## Project Structure
 
 \`\`\`
-intellitask/
-├── app/                    # Next.js App Router
+├── app/                    # Next.js app directory
 │   ├── api/               # API routes
 │   ├── auth/              # Authentication pages
 │   ├── profile/           # User profile
 │   ├── settings/          # User settings
 │   └── shared/            # Shared task lists
 ├── components/            # React components
-│   └── ui/               # UI components
-├── contexts/              # React contexts
-├── hooks/                 # Custom hooks
-├── lib/                   # Utility libraries
+│   ├── ui/               # shadcn/ui components
+│   └── ...               # Custom components
+├── contexts/             # React contexts
+├── hooks/                # Custom hooks
+├── lib/                  # Utility libraries
+├── types/                # TypeScript type definitions
 └── public/               # Static assets
 \`\`\`
 
-## 🔧 **Configuration**
+## Development
 
-### Firebase Setup
-1. Create a Firebase project
-2. Enable Authentication (Email/Password and Google)
-3. Enable Firestore Database
-4. Enable Cloud Messaging
-5. Generate VAPID keys for push notifications
+### Code Quality
 
-### Google Calendar API
-1. Enable Google Calendar API in Google Cloud Console
-2. Create OAuth 2.0 credentials
-3. Add authorized redirect URIs
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- Error boundaries for error handling
 
-### MongoDB Setup
-1. Create a MongoDB database
-2. Get your connection string
-3. The app will automatically create required collections
+### Testing
 
-## 🚀 **Deployment**
+Run the health check endpoint to verify all integrations:
 
-### Vercel (Recommended)
 \`\`\`bash
-npm run build
-vercel --prod
+curl http://localhost:3000/api/health
 \`\`\`
 
-### Other Platforms
-The application can be deployed to any Node.js hosting platform:
-- Netlify
-- Railway
-- Heroku
-- DigitalOcean App Platform
+Run integration tests:
 
-## 📊 **API Endpoints**
+\`\`\`bash
+curl -X POST http://localhost:3000/api/integrations/test
+\`\`\`
 
-### Authentication
-- `POST /api/users` - Create user
-- `GET /api/users` - Get user data
+## Deployment
 
-### Tasks
-- `GET /api/tasks` - Get tasks
-- `POST /api/tasks` - Create task
-- `PUT /api/tasks` - Update task
-- `DELETE /api/tasks` - Delete task
+### Vercel (Recommended)
 
-### Task Lists
-- `GET /api/task-lists` - Get task lists
-- `POST /api/task-lists` - Create task list
-- `PUT /api/task-lists` - Update task list
-- `DELETE /api/task-lists` - Delete task list
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy
 
-### Calendar
-- `GET /api/calendar/auth` - Get Google OAuth URL
-- `POST /api/calendar/sync` - Sync tasks to calendar
+### Manual Deployment
 
-### Notifications
-- `POST /api/notifications/send` - Send push notification
-- `POST /api/notifications/register` - Register FCM token
+1. Build the application:
+\`\`\`bash
+pnpm build
+\`\`\`
 
-## 🔍 **Health Check**
+2. Start the production server:
+\`\`\`bash
+pnpm start
+\`\`\`
 
-Visit `/setup` to check system health and configuration status.
+## Environment Variables
 
-## 🤝 **Contributing**
+All required environment variables are documented in `.env.example`. Make sure to:
+
+1. Never commit `.env.local` to version control
+2. Use strong, unique secrets for production
+3. Rotate secrets regularly
+4. Use Vercel's environment variable management for production
+
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -189,27 +231,13 @@ Visit `/setup` to check system health and configuration status.
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 **License**
+## License
 
 This project is licensed under the MIT License.
 
-## 🆘 **Support**
+## Support
 
-If you encounter any issues:
-1. Check the `/setup` page for configuration problems
-2. Review the console for error messages
-3. Ensure all environment variables are set correctly
-4. Verify Firebase and Google Cloud configurations
+For support, please open an issue on GitHub or contact the development team.
+\`\`\`
 
-## 🎯 **Roadmap**
-
-- [ ] Mobile app (React Native)
-- [ ] Team collaboration features
-- [ ] Advanced analytics dashboard
-- [ ] Integration with more calendar providers
-- [ ] AI-powered task suggestions
-- [ ] Offline support with sync
-
----
-
-Built with ❤️ using Next.js and modern web technologies.
+Now let's create a deployment checklist:

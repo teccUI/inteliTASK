@@ -1,65 +1,70 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { messaging } from "@/lib/firebase-admin"
+import { adminDb, messaging } from "@/lib/firebase-admin"
 
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json()
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const tasks = db.collection("tasks")
-    const users = db.collection("users")
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    }
 
-    // Get user's weekly stats
+    // Get user's task statistics for the week
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
 
-    const [completedThisWeek, totalTasks, user] = await Promise.all([
-      tasks.countDocuments({
-        userId,
-        completed: true,
-        updatedAt: { $gte: weekAgo },
-      }),
-      tasks.countDocuments({ userId }),
-      users.findOne({ uid: userId }),
-    ])
+    const tasksRef = adminDb.collection("tasks")
+    const querySnapshot = await tasksRef.where("userId", "==", userId).where("createdAt", ">=", weekAgo).get()
 
-    const pendingTasks = await tasks.countDocuments({
-      userId,
-      completed: false,
-    })
+    const weekTasks = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    const completedTasks = weekTasks.filter((task) => task.completed)
+    const totalTasks = weekTasks.length
 
-    if (user && user.fcmTokens && user.fcmTokens.length > 0) {
-      const message = {
-        notification: {
-          title: "Weekly Progress Report",
-          body: `You completed ${completedThisWeek} tasks this week! ${pendingTasks} tasks remaining.`,
-        },
-        data: {
-          type: "weekly_digest",
-          completedThisWeek: completedThisWeek.toString(),
-          pendingTasks: pendingTasks.toString(),
-        },
-        tokens: user.fcmTokens,
-      }
+    // Get user's FCM token
+    const userRef = adminDb.collection("users").doc(userId)
+    const userDoc = await userRef.get()
 
-      const response = await messaging.sendEachForMulticast(message)
-
-      return NextResponse.json({
-        success: true,
-        digestSent: response.successCount > 0,
-        stats: {
-          completedThisWeek,
-          pendingTasks,
-          totalTasks,
-        },
-      })
+    if (!userDoc.exists) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ error: "No FCM tokens found" }, { status: 404 })
+    const userData = userDoc.data()
+    const fcmToken = userData?.fcmToken
+
+    if (!fcmToken) {
+      return NextResponse.json({ error: "User has no FCM token registered" }, { status: 400 })
+    }
+
+    // Send weekly digest notification
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0
+
+    const message = {
+      notification: {
+        title: "Weekly Digest",
+        body: `This week: ${completedTasks.length}/${totalTasks} tasks completed (${completionRate}%)`,
+      },
+      data: {
+        type: "weekly_digest",
+        completedTasks: completedTasks.length.toString(),
+        totalTasks: totalTasks.toString(),
+        completionRate: completionRate.toString(),
+      },
+      token: fcmToken,
+    }
+
+    const response = await messaging.send(message)
+
+    return NextResponse.json({
+      success: true,
+      messageId: response,
+      stats: {
+        completedTasks: completedTasks.length,
+        totalTasks,
+        completionRate,
+      },
+    })
   } catch (error) {
-    console.error("Weekly digest error:", error)
+    console.error("Error sending weekly digest:", error)
     return NextResponse.json({ error: "Failed to send digest" }, { status: 500 })
   }
 }

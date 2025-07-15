@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { auth, db } from "@/lib/firebase"
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from "firebase/firestore"
+import { adminDb } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +10,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })
     }
 
-    const taskListsCollection = collection(db, "taskLists")
-    const q = query(taskListsCollection, where("userId", "==", uid))
-    const querySnapshot = await getDocs(q)
+    const taskListsRef = adminDb.collection("taskLists")
+    const querySnapshot = await taskListsRef.where("userId", "==", uid).get()
 
     const lists = querySnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -30,9 +28,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const listData = await request.json()
-    const taskListsCollection = collection(db, "taskLists")
 
-    const docRef = await addDoc(taskListsCollection, {
+    if (!listData.name || !listData.userId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    const taskListsRef = adminDb.collection("taskLists")
+    const docRef = await taskListsRef.add({
       ...listData,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -52,9 +54,19 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, ...updateData } = await request.json()
-    const taskListRef = doc(db, "taskLists", id)
 
-    await updateDoc(taskListRef, {
+    if (!id) {
+      return NextResponse.json({ error: "ID is required" }, { status: 400 })
+    }
+
+    const taskListRef = adminDb.collection("taskLists").doc(id)
+    const doc = await taskListRef.get()
+
+    if (!doc.exists) {
+      return NextResponse.json({ error: "Task list not found" }, { status: 404 })
+    }
+
+    await taskListRef.update({
       ...updateData,
       updatedAt: new Date(),
     })
@@ -75,8 +87,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const taskListRef = doc(db, "taskLists", id)
-    await deleteDoc(taskListRef)
+    const taskListRef = adminDb.collection("taskLists").doc(id)
+    const doc = await taskListRef.get()
+
+    if (!doc.exists) {
+      return NextResponse.json({ error: "Task list not found" }, { status: 404 })
+    }
+
+    await taskListRef.delete()
 
     return NextResponse.json({ success: true })
   } catch (error) {

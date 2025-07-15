@@ -40,8 +40,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
+
+      // If user exists, ensure they're in Firestore
+      if (user) {
+        const userRef = doc(db, "users", user.uid)
+        const userDoc = await getDoc(userRef)
+
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName || "",
+            avatar: user.photoURL || "",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+        }
+      }
+
       setLoading(false)
     })
 
@@ -49,41 +67,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
+    }
   }
 
   const register = async (email: string, password: string, name: string) => {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password)
-    const userRef = doc(db, "users", user.uid)
+    try {
+      const { user } = await createUserWithEmailAndPassword(auth, email, password)
+      const userRef = doc(db, "users", user.uid)
 
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email,
-      name: name,
-      createdAt: new Date().toISOString(),
-    })
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        name: name,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    } catch (error) {
+      console.error("Registration error:", error)
+      throw error
+    }
   }
 
   const logout = async () => {
-    await signOut(auth)
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error("Logout error:", error)
+      throw error
+    }
   }
 
   const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email)
+    try {
+      await sendPasswordResetEmail(auth, email)
+    } catch (error) {
+      console.error("Reset password error:", error)
+      throw error
+    }
   }
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider()
-    const { user } = await signInWithPopup(auth, provider)
-    const userRef = doc(db, "users", user.uid)
+    try {
+      const provider = new GoogleAuthProvider()
+      const { user } = await signInWithPopup(auth, provider)
+      const userRef = doc(db, "users", user.uid)
 
-    await setDoc(userRef, {
-      uid: user.uid,
-      email: user.email,
-      name: user.displayName,
-      avatar: user.photoURL,
-      createdAt: new Date().toISOString(),
-    })
+      // Check if user exists, if not create them
+      const userDoc = await getDoc(userRef)
+      if (!userDoc.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || "",
+          avatar: user.photoURL || "",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      }
+    } catch (error) {
+      console.error("Google login error:", error)
+      throw error
+    }
   }
 
   const value = {

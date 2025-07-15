@@ -1,123 +1,121 @@
-# IntelliTask Deployment Checklist
+# Deployment Checklist
 
-## 🚀 Pre-Deployment Checklist
+## Pre-Deployment
 
-### ✅ Environment Variables
-- [ ] `MONGODB_URI` - MongoDB connection string
-- [ ] `NEXTAUTH_SECRET` - Your NextAuth secret key ✅
-- [ ] `NEXTAUTH_URL` - Your production URL
-- [ ] `GOOGLE_CLIENT_ID` - Google OAuth client ID ✅
-- [ ] `GOOGLE_CLIENT_SECRET` - Google OAuth client secret ✅
-- [ ] `NEXT_PUBLIC_VAPID_KEY` - Your VAPID key for push notifications ✅
-- [ ] All Firebase environment variables ✅
+### Environment Setup
+- [ ] All environment variables configured
+- [ ] Firebase project created and configured
+- [ ] Google Cloud Console project set up
+- [ ] Service account keys generated
+- [ ] OAuth credentials created
 
-### ✅ Firebase Configuration
-- [ ] Firebase project created ✅
-- [ ] Authentication enabled (Email/Password + Google) ✅
-- [ ] Firestore database enabled ✅
-- [ ] Cloud Messaging enabled ✅
-- [ ] VAPID keys generated ✅
-- [ ] Firebase Admin SDK key uploaded ✅
+### Code Quality
+- [ ] All TypeScript errors resolved
+- [ ] ESLint warnings addressed
+- [ ] Build completes successfully
+- [ ] Health check endpoint returns healthy status
+- [ ] Integration tests pass
 
-### ✅ Google Cloud Platform
-- [ ] GCP project created ✅
-- [ ] Google Calendar API enabled ✅
-- [ ] OAuth 2.0 credentials created ✅
-- [ ] Authorized redirect URIs configured
-- [ ] Authorized JavaScript origins configured
+### Security
+- [ ] No hardcoded secrets in code
+- [ ] Environment variables properly secured
+- [ ] Firebase security rules configured
+- [ ] CORS settings configured
+- [ ] Rate limiting implemented (if needed)
 
-### ✅ MongoDB
-- [ ] MongoDB Atlas cluster created ✅
-- [ ] Database user created ✅
-- [ ] Network access configured ✅
-- [ ] Connection string obtained ✅
+## Deployment Steps
 
-## 🔧 Integration Tests
+### Vercel Deployment
+1. [ ] Connect GitHub repository to Vercel
+2. [ ] Configure environment variables in Vercel dashboard
+3. [ ] Set up custom domain (if applicable)
+4. [ ] Configure deployment settings
+5. [ ] Deploy to production
 
-Run the integration tests to verify all systems:
+### Post-Deployment Verification
+- [ ] Application loads successfully
+- [ ] Authentication works (email/password and Google)
+- [ ] Task creation and management functions
+- [ ] Calendar integration works
+- [ ] Push notifications work
+- [ ] All API endpoints respond correctly
+- [ ] Health check returns healthy status
+- [ ] Error handling works properly
 
-1. Visit `/integrations` in your application
-2. Click "Run Tests" to verify all integrations
-3. Ensure all tests pass before deployment
+## Environment Variables Checklist
 
-## 🚀 Deployment Steps
+### Firebase Configuration
+- [ ] `NEXT_PUBLIC_FIREBASE_API_KEY`
+- [ ] `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- [ ] `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- [ ] `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- [ ] `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- [ ] `NEXT_PUBLIC_FIREBASE_APP_ID`
 
-### Vercel Deployment (Recommended)
+### Firebase Admin
+- [ ] `FIREBASE_PROJECT_ID`
+- [ ] `FIREBASE_CLIENT_EMAIL`
+- [ ] `FIREBASE_PRIVATE_KEY`
 
-1. **Install Vercel CLI**
-   \`\`\`bash
-   npm i -g vercel
-   \`\`\`
+### Google OAuth
+- [ ] `GOOGLE_CLIENT_ID`
+- [ ] `GOOGLE_CLIENT_SECRET`
 
-2. **Build and Deploy**
-   \`\`\`bash
-   npm run build
-   vercel --prod
-   \`\`\`
+### NextAuth
+- [ ] `NEXTAUTH_SECRET`
+- [ ] `NEXTAUTH_URL`
 
-3. **Configure Environment Variables in Vercel**
-   - Go to Vercel Dashboard > Project > Settings > Environment Variables
-   - Add all environment variables from your .env.local
+### Push Notifications
+- [ ] `NEXT_PUBLIC_VAPID_KEY`
 
-4. **Update OAuth Redirect URIs**
-   - Add your production domain to Google OAuth settings
-   - Update Firebase Auth authorized domains
+## Monitoring
 
-### Other Platforms
+### Health Checks
+- [ ] Set up monitoring for `/api/health` endpoint
+- [ ] Configure alerts for service degradation
+- [ ] Monitor Firebase usage and quotas
+- [ ] Track API response times
 
-The application can be deployed to:
-- Netlify
-- Railway
-- Heroku
-- DigitalOcean App Platform
+### Analytics
+- [ ] Set up error tracking (Sentry, etc.)
+- [ ] Monitor user engagement
+- [ ] Track feature usage
+- [ ] Monitor performance metrics
 
-## 📋 Post-Deployment Checklist
+## Maintenance
 
-- [ ] Visit `/integrations` to run integration tests
-- [ ] Test user registration and login
-- [ ] Test Google OAuth login
-- [ ] Test task creation and management
-- [ ] Test Google Calendar sync
-- [ ] Test push notifications
-- [ ] Verify all API endpoints are working
+### Regular Tasks
+- [ ] Update dependencies monthly
+- [ ] Review and rotate secrets quarterly
+- [ ] Monitor Firebase costs
+- [ ] Review error logs weekly
+- [ ] Update documentation as needed
 
-## 🔍 Monitoring
+### Backup Strategy
+- [ ] Firebase automatic backups enabled
+- [ ] Export user data regularly
+- [ ] Document recovery procedures
+- [ ] Test backup restoration process
 
-- Monitor application health at `/setup`
-- Check integration status at `/integrations`
-- Monitor Firebase Console for authentication metrics
-- Monitor MongoDB Atlas for database performance
+## Troubleshooting
 
-## 🆘 Troubleshooting
+### Common Issues
+- **Firebase connection errors**: Check service account configuration
+- **Authentication failures**: Verify OAuth settings and domains
+- **API errors**: Check environment variables and Firebase rules
+- **Build failures**: Ensure all dependencies are properly installed
+- **Calendar sync issues**: Verify Google Cloud Console settings
 
-### Common Issues:
+### Debug Commands
+\`\`\`bash
+# Check health status
+curl https://your-domain.com/api/health
 
-1. **OAuth Redirect Mismatch**
-   - Ensure production URLs are added to Google OAuth settings
-   - Update NEXTAUTH_URL to production domain
+# Test integrations
+curl -X POST https://your-domain.com/api/integrations/test
 
-2. **Firebase Domain Authorization**
-   - Add production domain to Firebase Auth authorized domains
+# Check build
+pnpm build
 
-3. **MongoDB Connection**
-   - Ensure MongoDB Atlas allows connections from all IPs (0.0.0.0/0)
-   - Or add Vercel's IP ranges to whitelist
-
-4. **Environment Variables**
-   - Ensure all environment variables are set in production
-   - Restart deployment after adding variables
-
-## 📊 Performance Optimization
-
-- Enable Vercel Analytics
-- Configure MongoDB connection pooling
-- Implement Redis caching for frequent queries
-- Optimize images and assets
-- Enable compression and caching headers
-
----
-
-Your IntelliTask application is now ready for production deployment! 🎉
-\`\`\`
-
-Next, let's update `next.config.mjs` to remove the dangerous ignore flags:
+# Run locally
+pnpm dev

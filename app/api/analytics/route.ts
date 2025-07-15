@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
+import { adminDb } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,88 +11,71 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const tasks = db.collection("tasks")
+    // Calculate date range based on period
+    const now = new Date()
+    const startDate = new Date()
 
-    const dateFilter = new Date()
     switch (period) {
       case "week":
-        dateFilter.setDate(dateFilter.getDate() - 7)
+        startDate.setDate(now.getDate() - 7)
         break
       case "month":
-        dateFilter.setMonth(dateFilter.getMonth() - 1)
+        startDate.setMonth(now.getMonth() - 1)
         break
       case "year":
-        dateFilter.setFullYear(dateFilter.getFullYear() - 1)
+        startDate.setFullYear(now.getFullYear() - 1)
         break
+      default:
+        startDate.setDate(now.getDate() - 7)
     }
 
-    const [totalTasks, completedTasks, pendingTasks, overdueTasks, tasksThisPeriod, completedThisPeriod] =
-      await Promise.all([
-        tasks.countDocuments({ userId }),
-        tasks.countDocuments({ userId, completed: true }),
-        tasks.countDocuments({ userId, completed: false }),
-        tasks.countDocuments({
-          userId,
-          completed: false,
-          dueDate: { $lt: new Date().toISOString().split("T")[0] },
-        }),
-        tasks.countDocuments({
-          userId,
-          createdAt: { $gte: dateFilter },
-        }),
-        tasks.countDocuments({
-          userId,
-          completed: true,
-          updatedAt: { $gte: dateFilter },
-        }),
-      ])
+    // Get tasks for the period
+    const tasksRef = adminDb.collection("tasks")
+    const querySnapshot = await tasksRef.where("userId", "==", userId).where("createdAt", ">=", startDate).get()
 
-    // Get task completion trend
-    const trendData = await tasks
-      .aggregate([
-        {
-          $match: {
-            userId,
-            completed: true,
-            updatedAt: { $gte: dateFilter },
-          },
-        },
-        {
-          $group: {
-            _id: {
-              $dateToString: {
-                format: "%Y-%m-%d",
-                date: "$updatedAt",
-              },
-            },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ])
-      .toArray()
+    const tasks = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
 
-    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+    // Calculate analytics
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter((task) => task.completed).length
+    const pendingTasks = totalTasks - completedTasks
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
-    return NextResponse.json({
-      overview: {
+    // Tasks by list
+    const tasksByList = tasks.reduce((acc, task) => {
+      const listId = task.listId || "uncategorized"
+      acc[listId] = (acc[listId] || 0) + 1
+      return acc
+    }, {})
+
+    // Tasks by day (for charts)
+    const tasksByDay = tasks.reduce((acc, task) => {
+      const date = new Date(task.createdAt.toDate()).toISOString().split("T")[0]
+      acc[date] = (acc[date] || 0) + 1
+      return acc
+    }, {})
+
+    const analytics = {
+      period,
+      dateRange: {
+        start: startDate.toISOString(),
+        end: now.toISOString(),
+      },
+      summary: {
         totalTasks,
         completedTasks,
         pendingTasks,
-        overdueTasks,
-        completionRate: Math.round(completionRate),
+        completionRate,
       },
-      period: {
-        tasksCreated: tasksThisPeriod,
-        tasksCompleted: completedThisPeriod,
-        period,
+      breakdown: {
+        tasksByList,
+        tasksByDay,
       },
-      trend: trendData,
-    })
+    }
+
+    return NextResponse.json(analytics)
   } catch (error) {
-    console.error("Analytics error:", error)
+    console.error("Error fetching analytics:", error)
     return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 })
   }
 }

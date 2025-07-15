@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { messaging } from "@/lib/firebase-admin"
+import { messaging, adminDb } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest) {
   const healthCheck = {
@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     status: "healthy",
     services: {
       firebase: { status: "unknown", message: "" },
+      firestore: { status: "unknown", message: "" },
       googleCalendar: { status: "unknown", message: "" },
       pushNotifications: { status: "unknown", message: "" },
       authentication: { status: "unknown", message: "" },
@@ -16,16 +17,26 @@ export async function GET(request: NextRequest) {
       nextAuthConfigured: !!process.env.NEXTAUTH_SECRET,
       googleClientConfigured: !!process.env.GOOGLE_CLIENT_ID,
       vapidConfigured: !!process.env.NEXT_PUBLIC_VAPID_KEY,
+      firebaseConfigured: !!process.env.FIREBASE_PROJECT_ID,
     },
   }
 
   // Test Firebase Admin
   try {
-    // Simple test to verify Firebase Admin is initialized
     const app = messaging.app
     healthCheck.services.firebase = { status: "healthy", message: "Firebase Admin SDK initialized" }
   } catch (error) {
     healthCheck.services.firebase = { status: "error", message: `Firebase Admin error: ${error.message}` }
+    healthCheck.status = "degraded"
+  }
+
+  // Test Firestore
+  try {
+    await adminDb.collection("health").doc("test").set({ timestamp: new Date() })
+    await adminDb.collection("health").doc("test").delete()
+    healthCheck.services.firestore = { status: "healthy", message: "Firestore connection successful" }
+  } catch (error) {
+    healthCheck.services.firestore = { status: "error", message: `Firestore error: ${error.message}` }
     healthCheck.status = "degraded"
   }
 
@@ -51,32 +62,32 @@ export async function GET(request: NextRequest) {
     healthCheck.services.pushNotifications = { status: "error", message: `Push notifications error: ${error.message}` }
   }
 
-    // Test Authentication Configuration
-    try {
-      const authConfig = {
-        nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-        nextAuthUrl: !!process.env.NEXTAUTH_URL,
-        firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-        googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-      }
-
-      const allAuthConfigured = Object.values(authConfig).every(Boolean)
-
-      healthCheck.services.authentication = {
-        status: allAuthConfigured ? "healthy" : "warning",
-        message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
-        details: authConfig,
-      }
-
-      if (!allAuthConfigured) healthCheck.status = "degraded"
-    } catch (error) {
-      healthCheck.services.authentication = {
-        status: "error",
-        message: `Authentication test failed: ${error.message}`,
-        details: { error: error.message },
-      }
-      healthCheck.status = "degraded"
+  // Test Authentication Configuration
+  try {
+    const authConfig = {
+      nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+      nextAuthUrl: !!process.env.NEXTAUTH_URL,
+      firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     }
+
+    const allAuthConfigured = Object.values(authConfig).every(Boolean)
+
+    healthCheck.services.authentication = {
+      status: allAuthConfigured ? "healthy" : "warning",
+      message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
+      details: authConfig,
+    }
+
+    if (!allAuthConfigured) healthCheck.status = "degraded"
+  } catch (error) {
+    healthCheck.services.authentication = {
+      status: "error",
+      message: `Authentication test failed: ${error.message}`,
+      details: { error: error.message },
+    }
+    healthCheck.status = "degraded"
+  }
 
   return NextResponse.json(healthCheck)
 }

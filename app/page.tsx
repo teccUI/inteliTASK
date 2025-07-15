@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -42,181 +42,202 @@ import { useAuth } from "@/contexts/AuthContext"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { usePushNotifications } from "@/hooks/usePushNotifications"
 import IntegrationStatus from "@/components/IntegrationStatus"
-
-interface Task {
-  id: string
-  title: string
-  description: string
-  dueDate: string
-  completed: boolean
-  listId: string
-}
-
-interface TaskList {
-  id: string
-  name: string
-  color: string
-  tasks: Task[]
-}
+import LoadingSpinner from "@/components/LoadingSpinner"
+import type { Task, TaskList } from "@/types"
 
 export default function IntelliTaskDashboard() {
-  const [taskLists, setTaskLists] = useState<TaskList[]>([
-    {
-      id: "1",
-      name: "Work",
-      color: "bg-blue-500",
-      tasks: [
-        {
-          id: "1",
-          title: "Complete project proposal",
-          description: "Finish the Q4 project proposal for client review",
-          dueDate: "2024-01-15",
-          completed: false,
-          listId: "1",
-        },
-        {
-          id: "2",
-          title: "Team meeting preparation",
-          description: "Prepare agenda and materials for weekly team meeting",
-          dueDate: "2024-01-14",
-          completed: true,
-          listId: "1",
-        },
-        {
-          id: "3",
-          title: "Code review",
-          description: "Review pull requests from team members",
-          dueDate: "2024-01-16",
-          completed: false,
-          listId: "1",
-        },
-        {
-          id: "6",
-          title: "Daily standup meeting",
-          description: "Attend the daily team standup",
-          dueDate: new Date().toISOString().split("T")[0], // Today's date
-          completed: true,
-          listId: "1",
-        },
-        {
-          id: "7",
-          title: "Review code changes",
-          description: "Review pending pull requests",
-          dueDate: new Date().toISOString().split("T")[0], // Today's date
-          completed: false,
-          listId: "1",
-        },
-      ],
-    },
-    {
-      id: "2",
-      name: "Personal",
-      color: "bg-green-500",
-      tasks: [
-        {
-          id: "4",
-          title: "Grocery shopping",
-          description: "Buy ingredients for weekend dinner party",
-          dueDate: "2024-01-13",
-          completed: false,
-          listId: "2",
-        },
-        {
-          id: "5",
-          title: "Exercise",
-          description: "30-minute workout at the gym",
-          dueDate: "2024-01-14",
-          completed: true,
-          listId: "2",
-        },
-      ],
-    },
-  ])
-
-  const [selectedList, setSelectedList] = useState<string>("1")
+  const [taskLists, setTaskLists] = useState<TaskList[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [selectedList, setSelectedList] = useState<string>("")
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
   const [isNewListOpen, setIsNewListOpen] = useState(false)
   const [newTask, setNewTask] = useState({ title: "", description: "", dueDate: "" })
   const [newListName, setNewListName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const { sendNotification } = usePushNotifications()
 
-  const currentList = taskLists.find((list) => list.id === selectedList)
+  // Fetch task lists
+  useEffect(() => {
+    if (!user) return
 
-  // Calculate overall progress instead of just today's tasks
-  const allTasks = taskLists.flatMap((list) => list.tasks)
+    const fetchTaskLists = async () => {
+      try {
+        const response = await fetch(`/api/task-lists?uid=${user.uid}`)
+        if (!response.ok) throw new Error("Failed to fetch task lists")
+        const lists = await response.json()
+        setTaskLists(lists)
+        if (lists.length > 0 && !selectedList) {
+          setSelectedList(lists[0].id)
+        }
+      } catch (error) {
+        console.error("Error fetching task lists:", error)
+        setError("Failed to load task lists")
+      }
+    }
+
+    fetchTaskLists()
+  }, [user, selectedList])
+
+  // Fetch tasks
+  useEffect(() => {
+    if (!user) return
+
+    const fetchTasks = async () => {
+      try {
+        const url = selectedList ? `/api/tasks?uid=${user.uid}&listId=${selectedList}` : `/api/tasks?uid=${user.uid}`
+
+        const response = await fetch(url)
+        if (!response.ok) throw new Error("Failed to fetch tasks")
+        const taskList = await response.json()
+        setTasks(taskList)
+      } catch (error) {
+        console.error("Error fetching tasks:", error)
+        setError("Failed to load tasks")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTasks()
+  }, [user, selectedList])
+
+  const currentList = taskLists.find((list) => list.id === selectedList)
+  const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
+
+  // Calculate progress
+  const allTasks = tasks
   const completedTasks = allTasks.filter((task) => task.completed)
   const dailyProgress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0
 
-  const addTask = () => {
-    if (newTask.title.trim() && currentList) {
-      const task: Task = {
-        id: Date.now().toString(),
+  const addTask = async () => {
+    if (!newTask.title.trim() || !user || !selectedList) return
+
+    try {
+      const taskData = {
         title: newTask.title,
         description: newTask.description,
         dueDate: newTask.dueDate,
         completed: false,
         listId: selectedList,
+        userId: user.uid,
       }
 
-      setTaskLists((prev) =>
-        prev.map((list) => (list.id === selectedList ? { ...list, tasks: [...list.tasks, task] } : list)),
-      )
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
+      })
 
+      if (!response.ok) throw new Error("Failed to create task")
+
+      const result = await response.json()
+      const newTaskWithId = { ...taskData, id: result.id }
+
+      setTasks((prev) => [...prev, newTaskWithId])
       setNewTask({ title: "", description: "", dueDate: "" })
       setIsNewTaskOpen(false)
+
+      // Send notification for new task
+      if (newTask.dueDate) {
+        await sendNotification(
+          "New Task Created",
+          `Task "${newTask.title}" has been added with due date ${newTask.dueDate}`,
+        )
+      }
+    } catch (error) {
+      console.error("Error creating task:", error)
+      setError("Failed to create task")
     }
   }
 
-  const addTaskList = () => {
-    if (newListName.trim()) {
+  const addTaskList = async () => {
+    if (!newListName.trim() || !user) return
+
+    try {
       const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500", "bg-yellow-500", "bg-indigo-500"]
-      const newList: TaskList = {
-        id: Date.now().toString(),
+      const listData = {
         name: newListName,
         color: colors[Math.floor(Math.random() * colors.length)],
-        tasks: [],
+        userId: user.uid,
       }
 
-      setTaskLists((prev) => [...prev, newList])
+      const response = await fetch("/api/task-lists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(listData),
+      })
+
+      if (!response.ok) throw new Error("Failed to create task list")
+
+      const result = await response.json()
+      const newListWithId = { ...listData, id: result.id }
+
+      setTaskLists((prev) => [...prev, newListWithId])
       setNewListName("")
       setIsNewListOpen(false)
-      setSelectedList(newList.id)
+      setSelectedList(newListWithId.id)
+    } catch (error) {
+      console.error("Error creating task list:", error)
+      setError("Failed to create task list")
     }
   }
 
-  const toggleTask = (taskId: string) => {
-    setTaskLists((prev) =>
-      prev.map((list) => ({
-        ...list,
-        tasks: list.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)),
-      })),
-    )
+  const toggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find((t) => t.id === taskId)
+      if (!task) return
+
+      const updatedTask = { ...task, completed: !task.completed }
+
+      const response = await fetch("/api/tasks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedTask),
+      })
+
+      if (!response.ok) throw new Error("Failed to update task")
+
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)))
+
+      // Send notification for task completion
+      if (updatedTask.completed) {
+        await sendNotification("Task Completed!", `Great job! You completed "${task.title}"`)
+      }
+    } catch (error) {
+      console.error("Error updating task:", error)
+      setError("Failed to update task")
+    }
   }
 
-  const deleteTask = (taskId: string) => {
-    setTaskLists((prev) =>
-      prev.map((list) => ({
-        ...list,
-        tasks: list.tasks.filter((task) => task.id !== taskId),
-      })),
-    )
+  const deleteTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/tasks?id=${taskId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Failed to delete task")
+
+      setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    } catch (error) {
+      console.error("Error deleting task:", error)
+      setError("Failed to delete task")
+    }
   }
 
-  const filteredTasks =
-    currentList?.tasks.filter(
-      (task) =>
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        task.description.toLowerCase().includes(searchQuery.toLowerCase()),
-    ) || []
+  const filteredTasks = currentTasks.filter(
+    (task) =>
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
 
   const handleShare = async (listId: string) => {
     const shareUrl = `${window.location.origin}/shared/${listId}`
     try {
       await navigator.clipboard.writeText(shareUrl)
-      // You could add a toast notification here
       alert("Share link copied to clipboard!")
     } catch (err) {
       // Fallback for older browsers
@@ -273,9 +294,6 @@ export default function IntelliTaskDashboard() {
         },
         body: JSON.stringify({
           userId: user.uid,
-          // You'll need to get these from the stored tokens
-          accessToken: "stored_access_token",
-          refreshToken: "stored_refresh_token",
         }),
       })
 
@@ -289,11 +307,37 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  const handleLogout = () => {
-    // Clear user session/tokens
-    localStorage.removeItem("userToken")
-    // Redirect to login
-    window.location.href = "/auth/login"
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" text="Loading your tasks..." />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <Target className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
+            <p className="text-gray-500 text-center mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -330,8 +374,8 @@ export default function IntelliTaskDashboard() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-                      <AvatarFallback>JD</AvatarFallback>
+                      <AvatarImage src={user?.photoURL || "/placeholder.svg?height=32&width=32"} alt="User" />
+                      <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -348,7 +392,7 @@ export default function IntelliTaskDashboard() {
                       <span>Settings</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleLogout()}>
+                  <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
@@ -436,7 +480,7 @@ export default function IntelliTaskDashboard() {
                           <span className="text-sm font-medium">{list.name}</span>
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          {list.tasks.length}
+                          {tasks.filter((t) => t.listId === list.id).length}
                         </Badge>
                       </button>
                     ))}
@@ -454,7 +498,7 @@ export default function IntelliTaskDashboard() {
                 {/* Header Actions */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{currentList?.name}</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">{currentList?.name || "All Tasks"}</h2>
                     <p className="text-gray-500">
                       {filteredTasks.filter((t) => !t.completed).length} pending,{" "}
                       {filteredTasks.filter((t) => t.completed).length} completed
@@ -462,17 +506,19 @@ export default function IntelliTaskDashboard() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => handleShare(selectedList)}>
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share
-                    </Button>
+                    {selectedList && (
+                      <Button variant="outline" size="sm" onClick={() => handleShare(selectedList)}>
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={handleCalendarSync}>
                       <Calendar className="w-4 h-4 mr-2" />
                       Sync Calendar
                     </Button>
                     <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
                       <DialogTrigger asChild>
-                        <Button size="sm">
+                        <Button size="sm" disabled={!selectedList}>
                           <Plus className="w-4 h-4 mr-2" />
                           Add Task
                         </Button>
@@ -536,9 +582,13 @@ export default function IntelliTaskDashboard() {
                         <CheckCircle2 className="w-12 h-12 text-gray-300 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
                         <p className="text-gray-500 text-center mb-4">
-                          {searchQuery ? "No tasks match your search." : "Get started by adding your first task."}
+                          {searchQuery
+                            ? "No tasks match your search."
+                            : selectedList
+                              ? "Get started by adding your first task."
+                              : "Select a task list to view tasks."}
                         </p>
-                        {!searchQuery && (
+                        {!searchQuery && selectedList && (
                           <Button onClick={() => setIsNewTaskOpen(true)}>
                             <Plus className="w-4 h-4 mr-2" />
                             Add Task

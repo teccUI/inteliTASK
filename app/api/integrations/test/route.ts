@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { messaging } from "@/lib/firebase-admin"
+import { messaging, adminDb } from "@/lib/firebase-admin"
 import { google } from "googleapis"
 
 export async function POST(request: NextRequest) {
@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
     overall: "unknown",
     tests: {
       firebase: { status: "pending", message: "", details: null },
+      firestore: { status: "pending", message: "", details: null },
       googleCalendar: { status: "pending", message: "", details: null },
       pushNotifications: { status: "pending", message: "", details: null },
       authentication: { status: "pending", message: "", details: null },
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 
   let allPassed = true
 
-  // Test 2: Firebase Admin SDK
+  // Test 1: Firebase Admin SDK
   try {
     const app = messaging.app
     const projectId = app.options.projectId
@@ -53,6 +54,37 @@ export async function POST(request: NextRequest) {
     integrationResults.tests.firebase = {
       status: "error",
       message: `Firebase Admin test failed: ${error.message}`,
+      details: { error: error.message },
+    }
+  }
+
+  // Test 2: Firestore Operations
+  try {
+    const testDoc = {
+      testField: "test-value-" + Date.now(),
+      createdAt: new Date(),
+    }
+
+    const testCollection = adminDb.collection("test")
+    const docRef = await testCollection.add(testDoc)
+    const retrievedDoc = await docRef.get()
+    await docRef.delete()
+
+    integrationResults.tests.firestore = {
+      status: "success",
+      message: "Firestore operations successful",
+      details: {
+        connected: true,
+        writeTest: !!docRef.id,
+        readTest: retrievedDoc.exists,
+        deleteTest: true,
+      },
+    }
+  } catch (error) {
+    allPassed = false
+    integrationResults.tests.firestore = {
+      status: "error",
+      message: `Firestore test failed: ${error.message}`,
       details: { error: error.message },
     }
   }
@@ -123,32 +155,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
-    // Test 5: Authentication Configuration
-    try {
-      const authConfig = {
-        nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-        nextAuthUrl: !!process.env.NEXTAUTH_URL,
-        firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-        googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-      }
-
-      const allAuthConfigured = Object.values(authConfig).every(Boolean)
-
-      integrationResults.tests.authentication = {
-        status: allAuthConfigured ? "success" : "warning",
-        message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
-        details: authConfig,
-      }
-
-      if (!allAuthConfigured) allPassed = false
-    } catch (error) {
-      allPassed = false
-      integrationResults.tests.authentication = {
-        status: "error",
-        message: `Authentication test failed: ${error.message}`,
-        details: { error: error.message },
-      }
+  // Test 5: Authentication Configuration
+  try {
+    const authConfig = {
+      nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+      nextAuthUrl: !!process.env.NEXTAUTH_URL,
+      firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     }
+
+    const allAuthConfigured = Object.values(authConfig).every(Boolean)
+
+    integrationResults.tests.authentication = {
+      status: allAuthConfigured ? "success" : "warning",
+      message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
+      details: authConfig,
+    }
+
+    if (!allAuthConfigured) allPassed = false
+  } catch (error) {
+    allPassed = false
+    integrationResults.tests.authentication = {
+      status: "error",
+      message: `Authentication test failed: ${error.message}`,
+      details: { error: error.message },
+    }
+  }
 
   // Set overall status
   integrationResults.overall = allPassed ? "success" : "partial"
