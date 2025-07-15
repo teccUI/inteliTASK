@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
+import { auth, db } from "@/lib/firebase"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,38 +11,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
+    const userRef = doc(db, "users", userId)
+    const userDoc = await getDoc(userRef)
 
-    const user = await users.findOne({ uid: userId })
-
-    if (!user) {
+    if (!userDoc.exists()) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({
-      settings: user.settings || {
-        notifications: {
-          email: true,
-          push: false,
-          taskReminders: true,
-          weeklyDigest: true,
-        },
-        appearance: {
-          theme: "light",
-          language: "en",
-        },
-        privacy: {
-          shareAnalytics: false,
-          publicProfile: false,
-        },
-        integrations: {
-          googleCalendar: false,
-          emailSync: false,
-        },
+    const userData = userDoc.data()
+    const settings = userData?.settings || {
+      notifications: {
+        email: true,
+        push: false,
+        taskReminders: true,
+        weeklyDigest: true,
       },
-    })
+      appearance: {
+        theme: "light",
+        language: "en",
+      },
+      privacy: {
+        shareAnalytics: false,
+        publicProfile: false,
+      },
+      integrations: {
+        googleCalendar: false,
+        emailSync: false,
+      },
+    }
+
+    return NextResponse.json({ settings })
   } catch (error) {
     console.error("Error fetching user settings:", error)
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 })
@@ -56,23 +55,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
+    const userRef = doc(db, "users", userId)
 
-    const result = await users.updateOne(
-      { uid: userId },
-      {
-        $set: {
-          settings,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
+    await updateDoc(userRef, {
+      settings,
+      updatedAt: new Date(),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

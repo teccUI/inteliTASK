@@ -12,7 +12,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth"
-import { auth } from "@/lib/firebase"
+import { auth, db } from "@/lib/firebase"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 
 interface AuthContextType {
   user: User | null
@@ -53,19 +54,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string, name: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password)
+    const userRef = doc(db, "users", user.uid)
 
-    // Store additional user info in MongoDB
-    await fetch("/api/users", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        name: name,
-        createdAt: new Date().toISOString(),
-      }),
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email,
+      name: name,
+      createdAt: new Date().toISOString(),
     })
   }
 
@@ -80,20 +75,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider()
     const { user } = await signInWithPopup(auth, provider)
+    const userRef = doc(db, "users", user.uid)
 
-    // Check if user exists in MongoDB, if not create them
-    await fetch("/api/users", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        uid: user.uid,
-        email: user.email,
-        name: user.displayName,
-        avatar: user.photoURL,
-        createdAt: new Date().toISOString(),
-      }),
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email,
+      name: user.displayName,
+      avatar: user.photoURL,
+      createdAt: new Date().toISOString(),
     })
   }
 

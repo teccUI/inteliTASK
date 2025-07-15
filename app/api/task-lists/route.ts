@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { auth, db } from "@/lib/firebase"
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from "firebase/firestore"
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,11 +11,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const taskLists = db.collection("taskLists")
+    const taskListsCollection = collection(db, "taskLists")
+    const q = query(taskListsCollection, where("userId", "==", uid))
+    const querySnapshot = await getDocs(q)
 
-    const lists = await taskLists.find({ userId: uid }).toArray()
+    const lists = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
 
     return NextResponse.json(lists)
   } catch (error) {
@@ -26,13 +29,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const taskLists = db.collection("taskLists")
-
     const listData = await request.json()
+    const taskListsCollection = collection(db, "taskLists")
 
-    const result = await taskLists.insertOne({
+    const docRef = await addDoc(taskListsCollection, {
       ...listData,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: result.insertedId,
+      id: docRef.id,
       ...listData,
     })
   } catch (error) {
@@ -51,25 +51,13 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const taskLists = db.collection("taskLists")
-
     const { id, ...updateData } = await request.json()
+    const taskListRef = doc(db, "taskLists", id)
 
-    const result = await taskLists.updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          ...updateData,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Task list not found" }, { status: 404 })
-    }
+    await updateDoc(taskListRef, {
+      ...updateData,
+      updatedAt: new Date(),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -87,15 +75,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const taskLists = db.collection("taskLists")
-
-    const result = await taskLists.deleteOne({ _id: new ObjectId(id) })
-
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: "Task list not found" }, { status: 404 })
-    }
+    const taskListRef = doc(db, "taskLists", id)
+    await deleteDoc(taskListRef)
 
     return NextResponse.json({ success: true })
   } catch (error) {

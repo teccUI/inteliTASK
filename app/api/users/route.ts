@@ -1,19 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
+import { auth, db } from "@/lib/firebase"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 
 export async function POST(request: NextRequest) {
   try {
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
-
     const userData = await request.json()
+    const userRef = doc(db, "users", userData.uid)
 
     // Check if user already exists
-    const existingUser = await users.findOne({ uid: userData.uid })
+    const userDoc = await getDoc(userRef)
 
-    if (!existingUser) {
-      await users.insertOne({
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
         ...userData,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -36,17 +34,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
+    const userRef = doc(db, "users", uid)
+    const userDoc = await getDoc(userRef)
 
-    const user = await users.findOne({ uid })
-
-    if (!user) {
+    if (!userDoc.exists()) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(user)
+    return NextResponse.json(userDoc.data())
   } catch (error) {
     console.error("Error fetching user:", error)
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 })

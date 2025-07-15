@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 import { messaging } from "@/lib/firebase-admin"
 import { google } from "googleapis"
 
@@ -8,7 +7,6 @@ export async function POST(request: NextRequest) {
     timestamp: new Date().toISOString(),
     overall: "unknown",
     tests: {
-      mongodb: { status: "pending", message: "", details: null },
       firebase: { status: "pending", message: "", details: null },
       googleCalendar: { status: "pending", message: "", details: null },
       pushNotifications: { status: "pending", message: "", details: null },
@@ -17,46 +15,6 @@ export async function POST(request: NextRequest) {
   }
 
   let allPassed = true
-
-  // Test 1: MongoDB Connection and Operations
-  try {
-    const client = await clientPromise
-    const db = client.db("intellitask")
-
-    // Test connection
-    await db.admin().ping()
-
-    // Test collections creation and basic operations
-    const testUser = {
-      uid: "test-user-" + Date.now(),
-      email: "test@example.com",
-      name: "Test User",
-      createdAt: new Date(),
-    }
-
-    const users = db.collection("users")
-    const insertResult = await users.insertOne(testUser)
-    const findResult = await users.findOne({ _id: insertResult.insertedId })
-    await users.deleteOne({ _id: insertResult.insertedId })
-
-    integrationResults.tests.mongodb = {
-      status: "success",
-      message: "MongoDB connection and operations successful",
-      details: {
-        connected: true,
-        insertTest: !!insertResult.insertedId,
-        queryTest: !!findResult,
-        deleteTest: true,
-      },
-    }
-  } catch (error) {
-    allPassed = false
-    integrationResults.tests.mongodb = {
-      status: "error",
-      message: `MongoDB test failed: ${error.message}`,
-      details: { error: error.message },
-    }
-  }
 
   // Test 2: Firebase Admin SDK
   try {
@@ -165,32 +123,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Test 5: Authentication Configuration
-  try {
-    const authConfig = {
-      nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-      nextAuthUrl: !!process.env.NEXTAUTH_URL,
-      firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-    }
+    // Test 5: Authentication Configuration
+    try {
+      const authConfig = {
+        nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+        nextAuthUrl: !!process.env.NEXTAUTH_URL,
+        firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      }
 
-    const allAuthConfigured = Object.values(authConfig).every(Boolean)
+      const allAuthConfigured = Object.values(authConfig).every(Boolean)
 
-    integrationResults.tests.authentication = {
-      status: allAuthConfigured ? "success" : "warning",
-      message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
-      details: authConfig,
-    }
+      integrationResults.tests.authentication = {
+        status: allAuthConfigured ? "success" : "warning",
+        message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
+        details: authConfig,
+      }
 
-    if (!allAuthConfigured) allPassed = false
-  } catch (error) {
-    allPassed = false
-    integrationResults.tests.authentication = {
-      status: "error",
-      message: `Authentication test failed: ${error.message}`,
-      details: { error: error.message },
+      if (!allAuthConfigured) allPassed = false
+    } catch (error) {
+      allPassed = false
+      integrationResults.tests.authentication = {
+        status: "error",
+        message: `Authentication test failed: ${error.message}`,
+        details: { error: error.message },
+      }
     }
-  }
 
   // Set overall status
   integrationResults.overall = allPassed ? "success" : "partial"

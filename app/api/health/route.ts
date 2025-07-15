@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
 import { messaging } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest) {
@@ -7,28 +6,17 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     status: "healthy",
     services: {
-      mongodb: { status: "unknown", message: "" },
       firebase: { status: "unknown", message: "" },
       googleCalendar: { status: "unknown", message: "" },
       pushNotifications: { status: "unknown", message: "" },
+      authentication: { status: "unknown", message: "" },
     },
     environment: {
       nodeEnv: process.env.NODE_ENV,
       nextAuthConfigured: !!process.env.NEXTAUTH_SECRET,
-      mongoConfigured: !!process.env.MONGODB_URI,
       googleClientConfigured: !!process.env.GOOGLE_CLIENT_ID,
       vapidConfigured: !!process.env.NEXT_PUBLIC_VAPID_KEY,
     },
-  }
-
-  // Test MongoDB connection
-  try {
-    const client = await clientPromise
-    await client.db("intellitask").admin().ping()
-    healthCheck.services.mongodb = { status: "healthy", message: "Connected successfully" }
-  } catch (error) {
-    healthCheck.services.mongodb = { status: "error", message: `MongoDB connection failed: ${error.message}` }
-    healthCheck.status = "degraded"
   }
 
   // Test Firebase Admin
@@ -62,6 +50,33 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     healthCheck.services.pushNotifications = { status: "error", message: `Push notifications error: ${error.message}` }
   }
+
+    // Test Authentication Configuration
+    try {
+      const authConfig = {
+        nextAuthSecret: !!process.env.NEXTAUTH_SECRET,
+        nextAuthUrl: !!process.env.NEXTAUTH_URL,
+        firebaseAuth: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        googleOAuth: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      }
+
+      const allAuthConfigured = Object.values(authConfig).every(Boolean)
+
+      healthCheck.services.authentication = {
+        status: allAuthConfigured ? "healthy" : "warning",
+        message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
+        details: authConfig,
+      }
+
+      if (!allAuthConfigured) healthCheck.status = "degraded"
+    } catch (error) {
+      healthCheck.services.authentication = {
+        status: "error",
+        message: `Authentication test failed: ${error.message}`,
+        details: { error: error.message },
+      }
+      healthCheck.status = "degraded"
+    }
 
   return NextResponse.json(healthCheck)
 }
