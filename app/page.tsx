@@ -16,7 +16,6 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 import IntegrationStatus from "@/components/IntegrationStatus"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import type { Task, TaskList } from "@/types"
-import { usePushNotifications } from "@/components/usePushNotifications"
 import { Target } from "lucide-react"
 import {
   Input,
@@ -60,6 +59,37 @@ interface AnalyticsData {
   overview: AnalyticsOverview
   period: AnalyticsPeriod
   trend: AnalyticsTrend[]
+}
+
+// Simple push notification hook implementation
+const usePushNotifications = () => {
+  const sendNotification = async (title: string, message: string) => {
+    // Check if the browser supports notifications
+    if (!("Notification" in window)) {
+      console.log("This browser does not support notifications")
+      return
+    }
+
+    // Request permission if not granted
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission()
+      if (permission !== "granted") {
+        console.log("Notification permission denied")
+        return
+      }
+    }
+
+    // Send notification if permission is granted
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body: message,
+        icon: "/favicon.ico", // You can customize this
+        badge: "/favicon.ico",
+      })
+    }
+  }
+
+  return { sendNotification }
 }
 
 export default function IntelliTaskDashboard() {
