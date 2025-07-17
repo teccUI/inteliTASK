@@ -37,8 +37,10 @@ export async function POST(request: NextRequest) {
     const tasks = db.collection("tasks")
 
     const taskData = await request.json()
+    const taskId = randomUUID()
 
     const result = await tasks.insertOne({
+      id: taskId,
       ...taskData,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      id: result.insertedId,
+      id: taskId,
       ...taskData,
     })
   } catch (error) {
