@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
             status: "synced",
           })
         } catch (error) {
-          console.error(`Error syncing task ${task._id}:`, error)
+          console.error(`Error syncing task ${task.id}:`, error)
           syncResults.push({
-            taskId: task._id,
+            taskId: task.id,
             status: "error",
             error: error.message,
           })
