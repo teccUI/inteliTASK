@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore"
 import { getMessaging, isSupported } from "firebase/messaging"
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCTIl8CjsxoepXtr_irYHoPq9En_7v6_VY",
-  authDomain: "intelitask-465914.firebaseapp.com",
-  projectId: "intelitask-465914",
-  storageBucket: "intelitask-465914.firebasestorage.app",
-  messagingSenderId: "407373421651",
-  appId: "1:407373421651:web:1d6da4bcbafd1f58577aa6",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 }
 
 // Initialize Firebase
