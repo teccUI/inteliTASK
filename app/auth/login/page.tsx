@@ -30,11 +30,10 @@ export default function LoginPage() {
         description: "Welcome back to IntelliTask!",
       })
       router.push("/")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Login Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
       })
     } finally {
       setLoading(false)
@@ -50,11 +49,10 @@ export default function LoginPage() {
         description: "Welcome back to IntelliTask!",
       })
       router.push("/")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Google Login Failed",
-        description: error.message || "An unexpected error occurred during Google login.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "An unexpected error occurred during Google login.",
       })
     } finally {
       setLoading(false)

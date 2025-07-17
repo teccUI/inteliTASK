@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
 import { db } from "@/lib/firebase-admin"
+import { Task } from "@/types"
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     const userTasks = userTasksSnapshot.docs.map(doc => ({ 
       id: doc.id, 
       ...doc.data() 
-    }))
+    } as Task))
 
     // Sync tasks to Google Calendar
     const syncResults = []
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
           syncResults.push({
             taskId: task.id,
             status: "error",
-            error: error.message,
+            error: error instanceof Error ? error.message : "Unknown error",
           })
         }
       }

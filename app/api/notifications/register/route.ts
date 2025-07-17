@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
+import { db } from "@/lib/firebase-admin"
+import { FieldValue } from "firebase-admin/firestore"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,18 +10,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
-
     // Add token to user's FCM tokens array (avoid duplicates)
-    await users.updateOne(
-      { uid: userId },
-      {
-        $addToSet: { fcmTokens: token },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await db.collection("users").doc(userId).update({
+      fcmTokens: FieldValue.arrayUnion(token),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

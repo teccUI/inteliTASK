@@ -1,56 +1,55 @@
-import { type NextRequest, NextResponse } from "next/server"
-import clientPromise from "@/lib/mongodb"
-import { messaging } from "@/lib/firebase-admin"
+import { NextResponse } from "next/server"
+import { db, messaging } from "@/lib/firebase-admin"
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const tasks = db.collection("tasks")
-    const users = db.collection("users")
+    const tasksCollection = db.collection("tasks")
+    const usersCollection = db.collection("users")
 
     // Get tasks due in the next 24 hours
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const upcomingTasks = await tasks
-      .find({
-        dueDate: {
-          $gte: new Date().toISOString().split("T")[0],
-          $lte: tomorrow.toISOString().split("T")[0],
-        },
-        completed: false,
-      })
-      .toArray()
+    const upcomingTasksSnapshot = await tasksCollection
+      .where("dueDate", ">=", new Date().toISOString().split("T")[0])
+      .where("dueDate", "<=", tomorrow.toISOString().split("T")[0])
+      .where("completed", "==", false)
+      .get()
 
     const reminderResults = []
 
-    for (const task of upcomingTasks) {
-      const user = await users.findOne({ uid: task.userId })
+    for (const taskDoc of upcomingTasksSnapshot.docs) {
+      const taskData = taskDoc.data()
+      const task = { id: taskDoc.id, ...taskData }
+      const userDoc = await usersCollection.doc(taskData.userId).get()
 
-      if (user && user.fcmTokens && user.fcmTokens.length > 0) {
-        const message = {
-          notification: {
-            title: "Task Reminder",
-            body: `Don't forget: ${task.title} is due soon!`,
-          },
-          data: {
-            taskId: task._id.toString(),
-            type: "reminder",
-          },
-          tokens: user.fcmTokens,
-        }
+      if (userDoc.exists) {
+        const user = userDoc.data()
+        
+        if (user && user.fcmTokens && user.fcmTokens.length > 0) {
+          const message = {
+            notification: {
+              title: "Task Reminder",
+              body: `Don't forget: ${taskData.title} is due soon!`,
+            },
+            data: {
+              taskId: task.id,
+              type: "reminder",
+            },
+            tokens: user.fcmTokens,
+          }
 
-        try {
-          const response = await messaging.sendEachForMulticast(message)
-          reminderResults.push({
-            taskId: task._id,
-            userId: task.userId,
-            success: response.successCount,
-            failed: response.failureCount,
-          })
-        } catch (error) {
-          console.error(`Failed to send reminder for task ${task._id}:`, error)
+          try {
+            const response = await messaging.sendEachForMulticast(message)
+            reminderResults.push({
+              taskId: task.id,
+              userId: taskData.userId,
+              success: response.successCount,
+              failed: response.failureCount,
+            })
+          } catch (error) {
+            console.error(`Failed to send reminder for task ${task.id}:`, error)
+          }
         }
       }
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,13 +28,7 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      fetchSettings()
-    }
-  }, [user])
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/users/settings?userId=${user?.uid}`)
@@ -43,16 +37,21 @@ export default function IntegrationsPage() {
       }
       const data = await response.json()
       setSettings(data.settings)
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to load settings.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to load settings.",
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (user) {
+      fetchSettings()
+    }
+  }, [user, fetchSettings])
 
   const handleSettingChange = (category: keyof UserSettings["integrations"], value: boolean) => {
     setSettings((prev) => {
@@ -88,11 +87,10 @@ export default function IntegrationsPage() {
         title: "Settings Saved",
         description: "Your integration settings have been updated.",
       })
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save settings.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to save settings.",
       })
     } finally {
       setSaving(false)
@@ -109,11 +107,10 @@ export default function IntegrationsPage() {
       }
       const data = await response.json()
       window.location.href = data.authUrl
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to initiate Google Calendar connection.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to initiate Google Calendar connection.",
       })
     }
   }
@@ -139,11 +136,10 @@ export default function IntegrationsPage() {
         title: "Calendar Sync Complete",
         description: `Successfully synced ${data.syncedTasks} tasks to Google Calendar.`,
       })
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to sync Google Calendar.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to sync Google Calendar.",
       })
     }
   }

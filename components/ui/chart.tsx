@@ -2,10 +2,6 @@
 
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
-import {
-  ChartContainer as RechartsChartContainer,
-  type ChartContainerProps as RechartsChartContainerProps,
-} from "@tremor/react"
 
 import { cn } from "@/lib/utils"
 
@@ -35,13 +31,13 @@ function useChart() {
   return context
 }
 
-const ChartContainer = React.forwardRef<HTMLDivElement, RechartsChartContainerProps>(({ className, ...props }, ref) => (
-  <RechartsChartContainer ref={ref} className={cn("flex aspect-[9/4] w-full", className)} {...props} />
+const ChartContainer = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn("flex aspect-[9/4] w-full", className)} {...props} />
 ))
 ChartContainer.displayName = "ChartContainer"
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color)
+  const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color)
 
   if (!colorConfig.length) {
     return null

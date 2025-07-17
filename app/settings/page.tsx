@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,13 +37,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    if (user) {
-      fetchSettings()
-    }
-  }, [user])
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/users/settings?userId=${user?.uid}`)
@@ -52,16 +46,21 @@ export default function SettingsPage() {
       }
       const data = await response.json()
       setSettings(data.settings)
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to load settings.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to load settings.",
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (user) {
+      fetchSettings()
+    }
+  }, [user, fetchSettings])
 
   const handleNotificationChange = (category: keyof UserSettings["notifications"], value: boolean) => {
     setSettings((prev) => {
@@ -123,11 +122,10 @@ export default function SettingsPage() {
         title: "Settings Saved",
         description: "Your settings have been updated.",
       })
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save settings.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to save settings.",
       })
     } finally {
       setSaving(false)

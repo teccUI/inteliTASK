@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,13 +27,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchProfile()
-    }
-  }, [user, authLoading])
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/users?uid=${user?.uid}`)
@@ -43,16 +37,21 @@ export default function ProfilePage() {
       const data = await response.json()
       setProfile(data)
       setName(data.name || "")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to load profile.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to load profile.",
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchProfile()
+    }
+  }, [user, authLoading, fetchProfile])
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,11 +76,10 @@ export default function ProfilePage() {
         description: "Your profile information has been saved.",
       })
       fetchProfile() // Re-fetch to ensure data consistency
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save profile.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to save profile.",
       })
     } finally {
       setSaving(false)

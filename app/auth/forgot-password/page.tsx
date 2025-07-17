@@ -28,11 +28,10 @@ export default function ForgotPasswordPage() {
         description: "Please check your inbox for instructions to reset your password.",
       })
       router.push("/auth/login")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to send password reset email.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to send password reset email.",
       })
     } finally {
       setLoading(false)

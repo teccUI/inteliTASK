@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/firebase-admin"
-import { Timestamp } from "firebase-admin/firestore"
+import { Task } from "@/types"
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     
     // Get all tasks for the user
     const allTasksSnapshot = await userTasksQuery.get()
-    const allTasks = allTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const allTasks = allTasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task))
 
     // Calculate basic metrics
     const totalTasks = allTasks.length
@@ -47,25 +47,25 @@ export async function GET(request: NextRequest) {
 
     // Calculate period-specific metrics
     const periodTasks = allTasks.filter(task => {
-      const taskDate = task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt)
+      const taskDate = task.createdAt instanceof Date ? task.createdAt : new Date(task.createdAt)
       return taskDate >= dateFilter
     })
     
     const completedThisPeriod = allTasks.filter(task => {
       if (!task.completed) return false
-      const taskDate = task.updatedAt?.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt)
+      const taskDate = task.updatedAt instanceof Date ? task.updatedAt : new Date(task.updatedAt)
       return taskDate >= dateFilter
     }).length
 
     // Generate trend data (group completed tasks by date)
     const completedTasksInPeriod = allTasks.filter(task => {
       if (!task.completed) return false
-      const taskDate = task.updatedAt?.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt)
+      const taskDate = task.updatedAt instanceof Date ? task.updatedAt : new Date(task.updatedAt)
       return taskDate >= dateFilter
     })
 
-    const trendData = completedTasksInPeriod.reduce((acc, task) => {
-      const taskDate = task.updatedAt?.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt)
+    const trendData = completedTasksInPeriod.reduce((acc: { _id: string; count: number }[], task) => {
+      const taskDate = task.updatedAt instanceof Date ? task.updatedAt : new Date(task.updatedAt)
       const dateKey = taskDate.toISOString().split("T")[0]
       
       const existing = acc.find(item => item._id === dateKey)

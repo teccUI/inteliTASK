@@ -13,7 +13,7 @@ interface HealthCheckResult {
     firebase: { status: string; message: string }
     googleCalendar: { status: string; message: string }
     pushNotifications: { status: string; message: string }
-    authentication: { status: string; message: string; details?: any }
+    authentication: { status: string; message: string; details?: unknown }
   }
   environment: {
     nodeEnv: string
@@ -27,10 +27,10 @@ interface IntegrationTestResult {
   timestamp: string
   overall: "success" | "partial" | "failure"
   tests: {
-    firebase: { status: string; message: string; details: any }
-    googleCalendar: { status: string; message: string; details: any }
-    pushNotifications: { status: string; message: string; details: any }
-    authentication: { status: string; message: string; details: any }
+    firebase: { status: string; message: string; details: unknown }
+    googleCalendar: { status: string; message: string; details: unknown }
+    pushNotifications: { status: string; message: string; details: unknown }
+    authentication: { status: string; message: string; details: unknown }
   }
 }
 

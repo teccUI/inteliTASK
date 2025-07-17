@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { messaging } from "@/lib/firebase-admin"
-import clientPromise from "@/lib/mongodb"
+import { messaging, db } from "@/lib/firebase-admin"
+import { FieldValue } from "firebase-admin/firestore"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +10,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    // Get user's FCM tokens from MongoDB
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
+    // Get user's FCM tokens from Firebase Firestore
+    const userDoc = await db.collection("users").doc(userId).get()
+    
+    if (!userDoc.exists) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+    
+    const userData = userDoc.data()
+    const fcmTokens = userData?.fcmTokens || []
 
-    const user = await users.findOne({ uid: userId })
-
-    if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
+    if (fcmTokens.length === 0) {
       return NextResponse.json({ error: "No FCM tokens found for user" }, { status: 404 })
     }
 
@@ -28,26 +31,23 @@ export async function POST(request: NextRequest) {
         body,
       },
       data: data || {},
-      tokens: user.fcmTokens,
+      tokens: fcmTokens,
     }
 
     const response = await messaging.sendEachForMulticast(message)
 
     // Remove invalid tokens
-    const invalidTokens = []
+    const invalidTokens: string[] = []
     response.responses.forEach((resp, idx) => {
       if (!resp.success) {
-        invalidTokens.push(user.fcmTokens[idx])
+        invalidTokens.push(fcmTokens[idx])
       }
     })
 
     if (invalidTokens.length > 0) {
-      await users.updateOne(
-        { uid: userId },
-        {
-          $pull: { fcmTokens: { $in: invalidTokens } },
-        },
-      )
+      await db.collection("users").doc(userId).update({
+        fcmTokens: FieldValue.arrayRemove(...invalidTokens)
+      })
     }
 
     return NextResponse.json({

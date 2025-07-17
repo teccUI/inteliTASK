@@ -28,7 +28,7 @@ const InputOTPSlot = React.forwardRef<
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
   const inputOTPContext = React.useContext(OTPInputContext)
-  const { char, hasFocused, isActive } = inputOTPContext.slots[index]
+  const { char, isActive } = inputOTPContext.slots[index]
 
   return (
     <div
@@ -36,13 +36,12 @@ const InputOTPSlot = React.forwardRef<
       className={cn(
         "relative flex h-9 w-9 items-center justify-center border-y border-r border-input text-sm shadow-sm transition-all first:rounded-l-md first:border-l last:rounded-r-md",
         isActive && "z-10 ring-1 ring-ring",
-        hasFocused && "ring-ring",
         className,
       )}
       {...props}
     >
       {char}
-      {hasFocused && (
+      {isActive && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="h-4 w-[1px] animate-caret-blink bg-foreground" />
         </span>
