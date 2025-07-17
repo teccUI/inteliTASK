@@ -140,7 +140,7 @@ export default function IntelliTaskDashboard() {
   const [newListName, setNewListName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
 
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const { sendNotification } = usePushNotifications()
 
   const currentList = taskLists.find((list) => list.id === selectedList)
