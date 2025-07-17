@@ -299,11 +299,14 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  const handleLogout = () => {
-    // Clear user session/tokens
-    localStorage.removeItem("userToken")
-    // Redirect to login
-    window.location.href = "/auth/login"
+  const handleLogout = async () => {
+    try {
+      await logout()
+      // The AuthProvider will handle the redirect to login
+    } catch (error) {
+      console.error("Logout error:", error)
+      alert("Failed to logout")
+    }
   }
 
   return (
