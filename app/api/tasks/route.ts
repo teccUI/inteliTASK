@@ -99,7 +99,7 @@ export async function DELETE(request: NextRequest) {
     const db = client.db("intellitask")
     const tasks = db.collection("tasks")
 
-    const result = await tasks.deleteOne({ _id: new ObjectId(id) })
+    const result = await tasks.deleteOne({ id: id })
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
