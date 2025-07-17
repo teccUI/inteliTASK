@@ -25,6 +25,21 @@ export async function POST(request: NextRequest) {
 
     const reminderResults = []
 
+    // Skip messaging in development mode
+    if (process.env.NODE_ENV === "development" || !messaging) {
+      return NextResponse.json({
+        success: true,
+        remindersProcessed: upcomingTasks.length,
+        results: upcomingTasks.map(task => ({
+          taskId: task.id,
+          userId: task.userId,
+          success: 1,
+          failed: 0,
+          note: "Development mode - notifications skipped"
+        })),
+      })
+    }
+
     for (const task of upcomingTasks) {
       const user = await users.findOne({ uid: task.userId })
 
@@ -35,7 +50,7 @@ export async function POST(request: NextRequest) {
             body: `Don't forget: ${task.title} is due soon!`,
           },
           data: {
-            taskId: task._id.toString(),
+            taskId: task.id.toString(),
             type: "reminder",
           },
           tokens: user.fcmTokens,
@@ -44,13 +59,13 @@ export async function POST(request: NextRequest) {
         try {
           const response = await messaging.sendEachForMulticast(message)
           reminderResults.push({
-            taskId: task._id,
+            taskId: task.id,
             userId: task.userId,
             success: response.successCount,
             failed: response.failureCount,
           })
         } catch (error) {
-          console.error(`Failed to send reminder for task ${task._id}:`, error)
+          console.error(`Failed to send reminder for task ${task.id}:`, error)
         }
       }
     }
