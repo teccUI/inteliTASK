@@ -266,6 +266,15 @@ export default function IntelliTaskDashboard() {
     if (!user) return
 
     try {
+      // Get user's stored tokens
+      const userResponse = await fetch(`/api/users?uid=${user.uid}`)
+      const userData = await userResponse.json()
+      
+      if (!userData.googleCalendarTokens) {
+        alert("Please connect to Google Calendar first")
+        return
+      }
+
       const response = await fetch("/api/calendar/sync", {
         method: "POST",
         headers: {
@@ -273,15 +282,16 @@ export default function IntelliTaskDashboard() {
         },
         body: JSON.stringify({
           userId: user.uid,
-          // You'll need to get these from the stored tokens
-          accessToken: "stored_access_token",
-          refreshToken: "stored_refresh_token",
+          accessToken: userData.googleCalendarTokens.accessToken,
+          refreshToken: userData.googleCalendarTokens.refreshToken,
         }),
       })
 
       const result = await response.json()
       if (result.success) {
         alert(`Successfully synced ${result.syncedTasks} tasks to Google Calendar!`)
+      } else {
+        alert("Failed to sync tasks to calendar")
       }
     } catch (error) {
       console.error("Sync error:", error)
