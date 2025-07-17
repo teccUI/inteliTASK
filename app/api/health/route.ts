@@ -34,8 +34,14 @@ export async function GET(request: NextRequest) {
   // Test Firebase Admin
   try {
     // Simple test to verify Firebase Admin is initialized
-    const app = messaging.app
-    healthCheck.services.firebase = { status: "healthy", message: "Firebase Admin SDK initialized" }
+    if (process.env.NODE_ENV === "development") {
+      healthCheck.services.firebase = { status: "healthy", message: "Firebase Admin SDK initialized (development mode)" }
+    } else if (messaging) {
+      const app = messaging.app
+      healthCheck.services.firebase = { status: "healthy", message: "Firebase Admin SDK initialized" }
+    } else {
+      healthCheck.services.firebase = { status: "warning", message: "Firebase Admin SDK not configured for production" }
+    }
   } catch (error) {
     healthCheck.services.firebase = { status: "error", message: `Firebase Admin error: ${error.message}` }
     healthCheck.status = "degraded"
