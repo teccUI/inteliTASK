@@ -1,6 +1,8 @@
+// app/task-lists/route.ts - CORRECTED VERSION
+
 import { type NextRequest, NextResponse } from "next/server"
-import { db } from "@/lib/firebase"
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from "firebase/firestore"
+// --- 1. CHANGE THIS IMPORT ---
+import { db as adminDb } from "@/lib/firebase-admin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,9 +13,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })
     }
 
-    const taskListsCollection = collection(db, "taskLists")
-    const q = query(taskListsCollection, where("userId", "==", uid))
-    const querySnapshot = await getDocs(q)
+    // --- 2. CHANGE THE SYNTAX ---
+    const querySnapshot = await adminDb
+      .collection("taskLists")
+      .where("userId", "==", uid)
+      .get()
 
     const lists = querySnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -30,9 +34,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const listData = await request.json()
-    const taskListsCollection = collection(db, "taskLists")
-
-    const docRef = await addDoc(taskListsCollection, {
+    
+    // --- 2. CHANGE THE SYNTAX ---
+    const docRef = await adminDb.collection("taskLists").add({
       ...listData,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -52,9 +56,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, ...updateData } = await request.json()
-    const taskListRef = doc(db, "taskLists", id)
 
-    await updateDoc(taskListRef, {
+    // --- 2. CHANGE THE SYNTAX ---
+    const taskListRef = adminDb.collection("taskLists").doc(id)
+
+    await taskListRef.update({
       ...updateData,
       updatedAt: new Date(),
     })
@@ -75,8 +81,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const taskListRef = doc(db, "taskLists", id)
-    await deleteDoc(taskListRef)
+    // --- 2. CHANGE THE SYNTAX ---
+    await adminDb.collection("taskLists").doc(id).delete()
 
     return NextResponse.json({ success: true })
   } catch (error) {
