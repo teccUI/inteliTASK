@@ -21,6 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No FCM tokens found for user" }, { status: 404 })
     }
 
+    // Skip messaging in development mode
+    if (process.env.NODE_ENV === "development" || !messaging) {
+      return NextResponse.json({
+        success: true,
+        successCount: user.fcmTokens.length,
+        failureCount: 0,
+        note: "Development mode - notification skipped"
+      })
+    }
+
     // Send notification to all user's devices
     const message = {
       notification: {
