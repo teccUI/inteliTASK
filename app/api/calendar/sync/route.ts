@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
           // Update task with calendar event ID
           await tasks.updateOne(
-            { _id: task._id },
+            { id: task.id },
             {
               $set: {
                 calendarEventId: response.data.id,
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
           )
 
           syncResults.push({
-            taskId: task._id,
+            taskId: task.id,
             eventId: response.data.id,
             status: "synced",
           })
