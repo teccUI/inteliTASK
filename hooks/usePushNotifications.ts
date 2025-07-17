@@ -20,7 +20,7 @@ export const usePushNotifications = () => {
           try {
             const messaging = getMessaging()
             const currentToken = await getToken(messaging, {
-              vapidKey: "BGvbeP0bAS4e7qmiRCVxrYoNhIy2m78-bVygHwpM3TnhPip2YxeuZhLnI35-ALECwhG3TQ6mEUFDEMb0YV-K9x0",
+              vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY!,
             })
 
             if (currentToken) {
