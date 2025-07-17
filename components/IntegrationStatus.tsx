@@ -5,7 +5,7 @@ interface IntegrationStatusProps {
   name: string
   status: string
   message: string
-  details?: any
+  details?: unknown
 }
 
 export default function IntegrationStatus({ name, status, message, details }: IntegrationStatusProps) {
@@ -36,14 +36,14 @@ export default function IntegrationStatus({ name, status, message, details }: In
         <h3 className="text-md font-semibold">{name}</h3>
         <p className={`text-sm ${getStatusColor(status)}`}>Status: {status}</p>
         <p className="text-sm text-muted-foreground">{message}</p>
-        {details && (
+        {details ? (
           <details className="mt-2 text-xs text-muted-foreground">
             <summary>Details</summary>
             <pre className="mt-1 overflow-auto rounded-md bg-gray-100 p-2 dark:bg-gray-800">
               {JSON.stringify(details, null, 2)}
             </pre>
           </details>
-        )}
+        ) : null}
       </div>
     </Card>
   )

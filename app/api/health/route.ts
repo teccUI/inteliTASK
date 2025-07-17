@@ -1,7 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { messaging } from "@/lib/firebase-admin"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const healthCheck = {
     timestamp: new Date().toISOString(),
     status: "healthy",
@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
   // Test Firebase Admin
   try {
     // Simple test to verify Firebase Admin is initialized
-    const app = messaging.app
+    void messaging.app
     healthCheck.services.firebase = { status: "healthy", message: "Firebase Admin SDK initialized" }
   } catch (error) {
-    healthCheck.services.firebase = { status: "error", message: `Firebase Admin error: ${error.message}` }
+    healthCheck.services.firebase = { status: "error", message: `Firebase Admin error: ${error instanceof Error ? error.message : "Unknown error"}` }
     healthCheck.status = "degraded"
   }
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       healthCheck.services.googleCalendar = { status: "warning", message: "Google Calendar API not configured" }
     }
   } catch (error) {
-    healthCheck.services.googleCalendar = { status: "error", message: `Google Calendar error: ${error.message}` }
+    healthCheck.services.googleCalendar = { status: "error", message: `Google Calendar error: ${error instanceof Error ? error.message : "Unknown error"}` }
   }
 
   // Test Push Notifications
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       healthCheck.services.pushNotifications = { status: "warning", message: "VAPID key not configured" }
     }
   } catch (error) {
-    healthCheck.services.pushNotifications = { status: "error", message: `Push notifications error: ${error.message}` }
+    healthCheck.services.pushNotifications = { status: "error", message: `Push notifications error: ${error instanceof Error ? error.message : "Unknown error"}` }
   }
 
   // Test Authentication Configuration
@@ -65,15 +65,13 @@ export async function GET(request: NextRequest) {
     healthCheck.services.authentication = {
       status: allAuthConfigured ? "healthy" : "warning",
       message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
-      details: authConfig,
     }
 
     if (!allAuthConfigured) healthCheck.status = "degraded"
   } catch (error) {
     healthCheck.services.authentication = {
       status: "error",
-      message: `Authentication test failed: ${error.message}`,
-      details: { error: error.message },
+      message: `Authentication test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
     }
     healthCheck.status = "degraded"
   }

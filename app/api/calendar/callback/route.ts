@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
-import clientPromise from "@/lib/mongodb"
+import { db } from "@/lib/firebase-admin"
+import { FieldValue } from "firebase-admin/firestore"
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -21,24 +22,17 @@ export async function GET(request: NextRequest) {
     // Exchange code for tokens
     const { tokens } = await oauth2Client.getToken(code)
 
-    // Store tokens in MongoDB
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const users = db.collection("users")
+    // Store tokens in Firestore
+    const usersCollection = db.collection("users")
 
-    await users.updateOne(
-      { uid: state },
-      {
-        $set: {
-          googleCalendarTokens: {
-            accessToken: tokens.access_token,
-            refreshToken: tokens.refresh_token,
-            expiryDate: tokens.expiry_date,
-          },
-          updatedAt: new Date(),
-        },
+    await usersCollection.doc(state).update({
+      googleCalendarTokens: {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiryDate: tokens.expiry_date,
       },
-    )
+      updatedAt: FieldValue.serverTimestamp(),
+    })
 
     // Redirect back to dashboard with success message
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?calendar_connected=true`)

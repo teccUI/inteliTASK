@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,14 +22,7 @@ export default function SharedListPage() {
   const [loading, setLoading] = useState(true)
   const [listName, setListName] = useState("Shared Task List")
 
-  useEffect(() => {
-    if (listId) {
-      fetchTasks()
-      fetchListName()
-    }
-  }, [listId])
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/tasks?listId=${listId}`)
@@ -38,18 +31,17 @@ export default function SharedListPage() {
       }
       const data = await response.json()
       setTasks(data)
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to load tasks.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to load tasks.",
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [listId])
 
-  const fetchListName = async () => {
+  const fetchListName = useCallback(async () => {
     try {
       const response = await fetch(`/api/task-lists?id=${listId}`) // Assuming an API to fetch single list by ID
       if (response.ok) {
@@ -61,7 +53,14 @@ export default function SharedListPage() {
     } catch (error) {
       console.error("Failed to fetch list name:", error)
     }
-  }
+  }, [listId])
+
+  useEffect(() => {
+    if (listId) {
+      fetchTasks()
+      fetchListName()
+    }
+  }, [listId, fetchTasks, fetchListName])
 
   const handleTaskCompletionChange = async (taskId: string, completed: boolean) => {
     setTasks((prevTasks) => prevTasks.map((task) => (task.id === taskId ? { ...task, completed } : task)))
@@ -82,11 +81,10 @@ export default function SharedListPage() {
         title: "Task Updated",
         description: `Task "${tasks.find((t) => t.id === taskId)?.title}" marked as ${completed ? "completed" : "incomplete"}.`,
       })
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update task.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to update task.",
       })
       // Revert UI if API call fails
       setTasks((prevTasks) => prevTasks.map((task) => (task.id === taskId ? { ...task, completed: !completed } : task)))

@@ -192,6 +192,7 @@ export {
   Menubar,
   MenubarMenu,
   MenubarTrigger,
+  MenubarPortal,
   MenubarContent,
   MenubarItem,
   MenubarSeparator,

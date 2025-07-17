@@ -14,6 +14,7 @@ type CarouselContextProps = {
   scrollPrev: () => void
   canScrollNext: boolean
   canScrollPrev: boolean
+  orientation?: "horizontal" | "vertical"
 } & React.ComponentPropsWithoutRef<"div">
 
 const CarouselContext = React.createContext<CarouselContextProps | null>(null)
@@ -29,7 +30,7 @@ function useCarousel() {
 }
 
 type CarouselProps = {
-  opts?: React.ComponentProps<typeof useEmblaCarousel>[0]
+  opts?: Parameters<typeof useEmblaCarousel>[0]
   orientation?: "horizontal" | "vertical"
 } & React.ComponentPropsWithoutRef<"div">
 
@@ -42,9 +43,11 @@ const Carousel = React.forwardRef<HTMLDivElement, CarouselProps>(
     const [canScrollPrev, setCanScrollPrev] = React.useState(false)
     const [canScrollNext, setCanScrollNext] = React.useState(false)
 
-    const onSelect = React.useCallback((api: any) => {
-      setCanScrollPrev(api.canScrollPrev())
-      setCanScrollNext(api.canScrollNext())
+    const onSelect = React.useCallback((api: UseEmblaCarouselType[1]) => {
+      if (api) {
+        setCanScrollPrev(api.canScrollPrev())
+        setCanScrollNext(api.canScrollNext())
+      }
     }, [])
 
     const scrollPrev = React.useCallback(() => {

@@ -68,7 +68,6 @@ export function usePushNotifications() {
       toast({
         title: "Notifications not supported",
         description: "Your browser does not support web notifications.",
-        variant: "destructive",
       })
       return false
     }
@@ -92,7 +91,6 @@ export function usePushNotifications() {
         toast({
           title: "Error enabling notifications",
           description: "Please check console for details.",
-          variant: "destructive",
         })
         return false
       }
@@ -100,7 +98,6 @@ export function usePushNotifications() {
       toast({
         title: "Notification permission denied",
         description: "You will not receive push notifications.",
-        variant: "destructive",
       })
       return false
     }
@@ -113,7 +110,6 @@ export function usePushNotifications() {
         toast({
           title: "Notification Failed",
           description: "Push notifications are not enabled or token is missing.",
-          variant: "destructive",
         })
         return
       }
@@ -142,7 +138,6 @@ export function usePushNotifications() {
         toast({
           title: "Notification Send Failed",
           description: "Could not send test notification.",
-          variant: "destructive",
         })
       }
     },

@@ -30,11 +30,10 @@ export default function RegisterPage() {
         description: "Your account has been created. Welcome to IntelliTask!",
       })
       router.push("/")
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Registration Failed",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
       })
     } finally {
       setLoading(false)

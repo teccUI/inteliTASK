@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label"
 
 import Link from "next/link"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -123,13 +123,7 @@ export default function IntelliTaskDashboard() {
     fetchTasks()
   }, [user, selectedList])
 
-  useEffect(() => {
-    if (user) {
-      fetchAnalytics()
-    }
-  }, [user])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true)
     try {
       const response = await fetch(`/api/analytics?userId=${user?.uid}`)
@@ -138,16 +132,21 @@ export default function IntelliTaskDashboard() {
       }
       const data = await response.json()
       setAnalytics(data)
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to load dashboard analytics.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to load dashboard analytics.",
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (user) {
+      fetchAnalytics()
+    }
+  }, [user, fetchAnalytics])
 
   const handleCalendarSync = async () => {
     if (!user) return
@@ -171,11 +170,10 @@ export default function IntelliTaskDashboard() {
         title: "Calendar Sync Complete",
         description: `Successfully synced ${data.syncedTasks} tasks to Google Calendar.`,
       })
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message || "Failed to sync Google Calendar.",
-        variant: "destructive",
+        description: error instanceof Error ? error.message : "Failed to sync Google Calendar.",
       })
     } finally {
       setSyncingCalendar(false)
@@ -204,9 +202,14 @@ export default function IntelliTaskDashboard() {
       if (!response.ok) throw new Error("Failed to create task")
 
       const result = await response.json()
-      const newTaskWithId = { ...taskData, id: result.id }
+      const newTaskWithId = { 
+        ...taskData, 
+        id: result.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
 
-      setTasks((prev) => [...prev, newTaskWithId])
+      setTasks((prev) => [...prev, newTaskWithId as Task])
       setNewTask({ title: "", description: "", dueDate: "" })
       setIsNewTaskOpen(false)
 
@@ -243,9 +246,14 @@ export default function IntelliTaskDashboard() {
       if (!response.ok) throw new Error("Failed to create task list")
 
       const result = await response.json()
-      const newListWithId = { ...listData, id: result.id }
+      const newListWithId = { 
+        ...listData, 
+        id: result.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
 
-      setTaskLists((prev) => [...prev, newListWithId])
+      setTaskLists((prev) => [...prev, newListWithId as TaskList])
       setNewListName("")
       setIsNewListOpen(false)
       setSelectedList(newListWithId.id)
@@ -308,7 +316,7 @@ export default function IntelliTaskDashboard() {
     try {
       await navigator.clipboard.writeText(shareUrl)
       alert("Share link copied to clipboard!")
-    } catch (err) {
+    } catch {
       // Fallback for older browsers
       const textArea = document.createElement("textarea")
       textArea.value = shareUrl
@@ -329,7 +337,7 @@ export default function IntelliTaskDashboard() {
   }
 
   const currentList = taskLists.find((list) => list.id === selectedList)
-  const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
+  // const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
 
   // Calculate progress
   const allTasks = tasks
@@ -433,7 +441,7 @@ export default function IntelliTaskDashboard() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center">
                       <CalendarDays className="w-4 h-4 mr-2" />
-                      Today's Progress
+                      Today&apos;s Progress
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

@@ -1,16 +1,16 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { messaging } from "@/lib/firebase-admin"
 import { google } from "googleapis"
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const integrationResults = {
     timestamp: new Date().toISOString(),
     overall: "unknown",
     tests: {
-      firebase: { status: "pending", message: "", details: null },
-      googleCalendar: { status: "pending", message: "", details: null },
-      pushNotifications: { status: "pending", message: "", details: null },
-      authentication: { status: "pending", message: "", details: null },
+      firebase: { status: "pending", message: "", details: {} },
+      googleCalendar: { status: "pending", message: "", details: {} },
+      pushNotifications: { status: "pending", message: "", details: {} },
+      authentication: { status: "pending", message: "", details: {} },
     },
   }
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       await messaging.send(testMessage)
     } catch (tokenError) {
       // Expected to fail with invalid token, but Firebase is working
-      if (tokenError.message.includes("invalid-registration-token")) {
+      if (tokenError instanceof Error && tokenError.message.includes("invalid-registration-token")) {
         integrationResults.tests.firebase = {
           status: "success",
           message: "Firebase Admin SDK initialized and working",
@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
             messagingAvailable: true,
             expectedTokenError: true,
           },
-        }
-      } else {
+        }       } else {
         throw tokenError
       }
     }
@@ -52,10 +51,9 @@ export async function POST(request: NextRequest) {
     allPassed = false
     integrationResults.tests.firebase = {
       status: "error",
-      message: `Firebase Admin test failed: ${error.message}`,
-      details: { error: error.message },
-    }
-  }
+      message: `Firebase Admin test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      details: { error: error instanceof Error ? error.message : "Unknown error" },
+    }   }
 
   // Test 3: Google Calendar API Configuration
   try {
@@ -81,15 +79,13 @@ export async function POST(request: NextRequest) {
         authUrlGenerated: !!authUrl,
         redirectUriConfigured: true,
       },
-    }
-  } catch (error) {
+    }   } catch (error) {
     allPassed = false
     integrationResults.tests.googleCalendar = {
       status: "error",
-      message: `Google Calendar API test failed: ${error.message}`,
-      details: { error: error.message },
-    }
-  }
+      message: `Google Calendar API test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      details: { error: error instanceof Error ? error.message : "Unknown error" },
+    }   }
 
   // Test 4: Push Notifications Configuration
   try {
@@ -113,15 +109,13 @@ export async function POST(request: NextRequest) {
         firebaseConfigComplete: Object.values(firebaseConfig).every(Boolean),
         serviceWorkerPath: "/firebase-messaging-sw.js",
       },
-    }
-  } catch (error) {
+    }   } catch (error) {
     allPassed = false
     integrationResults.tests.pushNotifications = {
       status: "error",
-      message: `Push notifications test failed: ${error.message}`,
-      details: { error: error.message },
-    }
-  }
+      message: `Push notifications test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      details: { error: error instanceof Error ? error.message : "Unknown error" },
+    }   }
 
   // Test 5: Authentication Configuration
   try {
@@ -138,17 +132,15 @@ export async function POST(request: NextRequest) {
       status: allAuthConfigured ? "success" : "warning",
       message: allAuthConfigured ? "Authentication fully configured" : "Some authentication configs missing",
       details: authConfig,
-    }
-
+    } 
     if (!allAuthConfigured) allPassed = false
   } catch (error) {
     allPassed = false
     integrationResults.tests.authentication = {
       status: "error",
-      message: `Authentication test failed: ${error.message}`,
-      details: { error: error.message },
-    }
-  }
+      message: `Authentication test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      details: { error: error instanceof Error ? error.message : "Unknown error" },
+    }   }
 
   // Set overall status
   integrationResults.overall = allPassed ? "success" : "partial"
