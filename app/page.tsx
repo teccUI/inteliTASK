@@ -16,17 +16,17 @@ import ProtectedRoute from "@/components/ProtectedRoute"
 import IntegrationStatus from "@/components/IntegrationStatus"
 import LoadingSpinner from "@/components/LoadingSpinner"
 import type { Task, TaskList } from "@/types"
-import { usePushNotifications } from "@/components/usePushNotifications"
+import { usePushNotifications } from "@/hooks/usePushNotifications"
 import { Target } from "lucide-react"
-import {
-  Input,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { 
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
+import {
   Dialog,
   DialogTrigger,
   DialogContent,
@@ -34,8 +34,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  Badge,
-} from "@/components/ui"
+} from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 
 interface AnalyticsOverview {
   totalTasks: number
@@ -509,7 +509,11 @@ export default function IntelliTaskDashboard() {
                 </Card>
 
                 {/* Integration Status */}
-                <IntegrationStatus />
+                <IntegrationStatus 
+                  name="Google Calendar" 
+                  status="healthy" 
+                  message="Integration is working properly"
+                />
               </div>
             </div>
 

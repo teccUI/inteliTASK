@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { google } from "googleapis"
-import clientPromise from "@/lib/mongodb"
+import { db } from "@/lib/firebase-admin"
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -24,12 +24,15 @@ export async function POST(request: NextRequest) {
 
     const calendar = google.calendar({ version: "v3", auth: oauth2Client })
 
-    // Get user's tasks from MongoDB
-    const client = await clientPromise
-    const db = client.db("intellitask")
-    const tasks = db.collection("tasks")
-
-    const userTasks = await tasks.find({ userId, completed: false }).toArray()
+    // Get user's tasks from Firebase
+    const tasksRef = db.collection("tasks")
+    const userTasksQuery = tasksRef.where("userId", "==", userId).where("completed", "==", false)
+    const userTasksSnapshot = await userTasksQuery.get()
+    
+    const userTasks = userTasksSnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }))
 
     // Sync tasks to Google Calendar
     const syncResults = []
@@ -63,25 +66,20 @@ export async function POST(request: NextRequest) {
           })
 
           // Update task with calendar event ID
-          await tasks.updateOne(
-            { _id: task._id },
-            {
-              $set: {
-                calendarEventId: response.data.id,
-                updatedAt: new Date(),
-              },
-            },
-          )
+          await tasksRef.doc(task.id).update({
+            calendarEventId: response.data.id,
+            updatedAt: new Date(),
+          })
 
           syncResults.push({
-            taskId: task._id,
+            taskId: task.id,
             eventId: response.data.id,
             status: "synced",
           })
         } catch (error) {
-          console.error(`Error syncing task ${task._id}:`, error)
+          console.error(`Error syncing task ${task.id}:`, error)
           syncResults.push({
-            taskId: task._id,
+            taskId: task.id,
             status: "error",
             error: error.message,
           })

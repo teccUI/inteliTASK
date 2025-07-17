@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { getMessaging, getToken, onMessage } from "firebase/messaging"
 import { initializeApp } from "firebase/app"
 import { toast } from "@/components/ui/use-toast"
+import { useAuth } from "@/contexts/AuthContext"
 
 // Firebase configuration for client-side
 const firebaseConfig = {
@@ -25,6 +26,7 @@ if (typeof window !== "undefined" && !firebaseAppInitialized) {
 }
 
 export function usePushNotifications() {
+  const { user } = useAuth()
   const [token, setToken] = useState<string | null>(null)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default")
 
@@ -122,7 +124,7 @@ export function usePushNotifications() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ userId: "current_user_id", title, body, data }), // Replace "current_user_id" with actual user ID
+          body: JSON.stringify({ userId: user?.uid || "", title, body, data }),
         })
 
         if (!response.ok) {
@@ -144,7 +146,7 @@ export function usePushNotifications() {
         })
       }
     },
-    [token],
+    [token, user],
   )
 
   return { token, notificationPermission, requestPermission, sendNotification }
