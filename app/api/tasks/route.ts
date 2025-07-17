@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { randomUUID } from "crypto"
 
 export async function GET(request: NextRequest) {
   try {
