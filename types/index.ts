@@ -45,10 +45,11 @@ export interface Task {
   completed: boolean
   listId: string
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
   priority?: "low" | "medium" | "high"
   tags?: string[]
+  calendarEventId?: string
 }
 
 export interface TaskList {
@@ -56,8 +57,8 @@ export interface TaskList {
   name: string
   color: string
   userId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
   isDefault?: boolean
 }
 
