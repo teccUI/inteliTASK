@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...updateData } = await request.json()
 
     const result = await taskLists.updateOne(
-      { _id: new ObjectId(id) },
+      { id: id },
       {
         $set: {
           ...updateData,
