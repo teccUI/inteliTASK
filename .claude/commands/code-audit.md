@@ -1,6 +1,6 @@
 # Code Audit Command
 
-This command performs a comprehensive codebase audit to identify and fix various types of errors including integration issues, API problems, unused imports, component imports, API usage, routing issues, and other potential problems.
+This command performs a comprehensive codebase audit to identify and fix various types of errors including integration issues, API problems, unused imports, component imports, API usage, routing issues, UI Issues, improper library imports for frontend, improper library imports for backend and other potential and application breaking problems.
 
 ## Command Process
 

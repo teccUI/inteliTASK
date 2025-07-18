@@ -15,8 +15,8 @@ export default function LoadingSpinner({ size = "md", className, text }: Loading
 
   return (
     <div className={cn("flex flex-col items-center justify-center", className)}>
-      <div className={cn("animate-spin rounded-full border-2 border-gray-300 border-t-blue-600", sizeClasses[size])} />
-      {text && <p className="mt-2 text-sm text-gray-600">{text}</p>}
+      <div className={cn("animate-spin rounded-full border-2 border-muted border-t-primary", sizeClasses[size])} />
+      {text && <p className="mt-2 text-sm text-muted-foreground">{text}</p>}
     </div>
   )
 }

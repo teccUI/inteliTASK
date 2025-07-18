@@ -41,8 +41,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // This onAuthStateChanged listener remains the same. It's correct.
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Ensure user document exists in Firestore
+        try {
+          const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: user.uid,
+              email: user.email,
+              name: user.displayName || '',
+              avatar: user.photoURL || '',
+            })
+          })
+          if (!response.ok) {
+            console.error('Failed to create/update user document')
+          }
+        } catch (error) {
+          console.error('Error creating/updating user document:', error)
+        }
+      }
       setUser(user)
       setLoading(false)
     })
@@ -121,7 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Could not get credential from Google sign-in result.");
       }
       const accessToken = credential.accessToken;
-      const refreshToken = credential.refreshToken;
+      // Note: refreshToken is not available in Firebase Auth credentials
+      // It's managed internally by Firebase Auth
 
       // 6. Save or update the user document in Firestore with the new tokens
       const userRef = doc(db, "users", user.uid);
@@ -133,8 +153,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatar: user.photoURL || "",
         updatedAt: new Date(),
         accessToken: accessToken, // Save the access token for immediate use
-        // Only update the refresh token if a new one is provided by Google
-        ...(refreshToken && { refreshToken: refreshToken }),
       };
 
       // Use getAdditionalUserInfo to check if this is a brand new sign-up
