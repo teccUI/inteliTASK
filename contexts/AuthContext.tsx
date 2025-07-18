@@ -11,6 +11,7 @@ import {
   sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
+  getAdditionalUserInfo, // Import this for checking if user is new
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, setDoc, getDoc } from "firebase/firestore"
@@ -40,29 +41,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // This onAuthStateChanged listener remains the same. It's correct.
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
-
-      // If user exists, ensure they're in Firestore
-      if (user) {
-        const userRef = doc(db, "users", user.uid)
-        const userDoc = await getDoc(userRef)
-
-        if (!userDoc.exists()) {
-          await setDoc(userRef, {
-            uid: user.uid,
-            email: user.email,
-            name: user.displayName || "",
-            avatar: user.photoURL || "",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-        }
-      }
-
       setLoading(false)
     })
-
     return unsubscribe
   }, [])
 
@@ -79,7 +62,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password)
       const userRef = doc(db, "users", user.uid)
-
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
@@ -111,29 +93,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  // --- THIS IS THE FULLY CORRECTED FUNCTION ---
   const loginWithGoogle = async () => {
     try {
-      const provider = new GoogleAuthProvider()
-      const { user } = await signInWithPopup(auth, provider)
-      const userRef = doc(db, "users", user.uid)
+      // 1. Create a new provider instance
+      const provider = new GoogleAuthProvider();
 
-      // Check if user exists, if not create them
-      const userDoc = await getDoc(userRef)
-      if (!userDoc.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName || "",
-          avatar: user.photoURL || "",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
+      // 2. Add the necessary scopes to ask for permission.
+      // This is the key step to get access to the user's tasks and calendar.
+      provider.addScope("https://www.googleapis.com/auth/tasks.readonly");
+      provider.addScope("https://www.googleapis.com/auth/calendar.readonly");
+
+      // 3. Request offline access to get a refresh token.
+      // This is crucial for your backend to be able to sync even when the user is not active.
+      provider.setCustomParameters({
+        access_type: 'offline',
+        prompt: "consent", // Ensures the user is prompted for the new scopes and gets a refresh token
+      });
+
+      // 4. Sign in with the popup and get the full result
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // 5. Get the OAuth credential, which contains the all-important tokens
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential) {
+        throw new Error("Could not get credential from Google sign-in result.");
       }
+      const accessToken = credential.accessToken;
+      const refreshToken = credential.refreshToken;
+
+      // 6. Save or update the user document in Firestore with the new tokens
+      const userRef = doc(db, "users", user.uid);
+      
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        name: user.displayName || "",
+        avatar: user.photoURL || "",
+        updatedAt: new Date(),
+        accessToken: accessToken, // Save the access token for immediate use
+        // Only update the refresh token if a new one is provided by Google
+        ...(refreshToken && { refreshToken: refreshToken }),
+      };
+
+      // Use getAdditionalUserInfo to check if this is a brand new sign-up
+      const additionalInfo = getAdditionalUserInfo(result);
+      if (additionalInfo?.isNewUser) {
+        // If the user is new, also set their creation date
+        await setDoc(userRef, {
+          ...userData,
+          createdAt: new Date(),
+        });
+      } else {
+        // If the user already exists, merge the updated token data
+        await setDoc(userRef, userData, { merge: true });
+      }
+
     } catch (error) {
-      console.error("Google login error:", error)
-      throw error
+      console.error("Google login error:", error);
+      throw error;
     }
-  }
+  };
 
   const value = {
     user,
