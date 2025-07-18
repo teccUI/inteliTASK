@@ -1,9 +1,7 @@
 "use client"
 
 import { Label } from "@/components/ui/label"
-
 import Link from "next/link"
-
 import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -20,7 +18,7 @@ import { usePushNotifications } from "@/hooks/usePushNotifications"
 import { Target } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
-import { 
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -78,6 +76,26 @@ export default function IntelliTaskDashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [syncingCalendar, setSyncingCalendar] = useState(false)
 
+  // Memoize fetchTasks to prevent re-creation on every render
+  const fetchTasks = useCallback(async () => {
+    if (!user) return;
+    try {
+      const url = selectedList
+        ? `/api/tasks?uid=${user.uid}&listId=${selectedList}`
+        : `/api/tasks?uid=${user.uid}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch tasks");
+      const taskList = await response.json();
+      setTasks(taskList);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setError("Failed to load tasks");
+    } finally {
+      // We handle initial loading separately
+    }
+  }, [user, selectedList]);
+
   // Fetch task lists
   useEffect(() => {
     if (!user) return
@@ -100,33 +118,18 @@ export default function IntelliTaskDashboard() {
     fetchTaskLists()
   }, [user, selectedList])
 
-  // Fetch tasks
+  // Fetch tasks when user or selectedList changes
   useEffect(() => {
-    if (!user) return
-
-    const fetchTasks = async () => {
-      try {
-        const url = selectedList ? `/api/tasks?uid=${user.uid}&listId=${selectedList}` : `/api/tasks?uid=${user.uid}`
-
-        const response = await fetch(url)
-        if (!response.ok) throw new Error("Failed to fetch tasks")
-        const taskList = await response.json()
-        setTasks(taskList)
-      } catch (error) {
-        console.error("Error fetching tasks:", error)
-        setError("Failed to load tasks")
-      } finally {
-        setLoading(false)
-      }
+    if (user) {
+      setLoading(true);
+      fetchTasks().finally(() => setLoading(false));
     }
-
-    fetchTasks()
-  }, [user, selectedList])
+  }, [user, selectedList, fetchTasks]);
 
   const fetchAnalytics = useCallback(async () => {
-    setLoading(true)
+    if (!user) return;
     try {
-      const response = await fetch(`/api/analytics?userId=${user?.uid}`)
+      const response = await fetch(`/api/analytics?userId=${user.uid}`)
       if (!response.ok) {
         throw new Error("Failed to fetch analytics")
       }
@@ -137,10 +140,8 @@ export default function IntelliTaskDashboard() {
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load dashboard analytics.",
       })
-    } finally {
-      setLoading(false)
     }
-  }, [user?.uid])
+  }, [user])
 
   useEffect(() => {
     if (user) {
@@ -148,6 +149,7 @@ export default function IntelliTaskDashboard() {
     }
   }, [user, fetchAnalytics])
 
+  // --- THIS IS THE FULLY CORRECTED FUNCTION ---
   const handleCalendarSync = async () => {
     if (!user) return
 
@@ -162,18 +164,24 @@ export default function IntelliTaskDashboard() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to sync Google Calendar")
+        throw new Error("Failed to sync Google Tasks")
       }
 
       const data = await response.json()
+
+      // 1. UPDATE THE TOAST MESSAGE to reflect the new API response
       toast({
         title: "Calendar Sync Complete",
-        description: `Successfully synced ${data.syncedTasks} tasks to Google Calendar.`,
+        description: `Successfully synced ${data.newTasksSynced} new tasks from Google.`,
       })
+
+      // 2. RE-FETCH THE TASKS to update the UI with the new data
+      await fetchTasks();
+
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to sync Google Calendar.",
+        description: error instanceof Error ? error.message : "Failed to sync Google Tasks.",
       })
     } finally {
       setSyncingCalendar(false)
@@ -213,7 +221,6 @@ export default function IntelliTaskDashboard() {
       setNewTask({ title: "", description: "", dueDate: "" })
       setIsNewTaskOpen(false)
 
-      // Send notification for new task
       if (newTask.dueDate) {
         await sendNotification(
           "New Task Created",
@@ -280,7 +287,6 @@ export default function IntelliTaskDashboard() {
 
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)))
 
-      // Send notification for task completion
       if (updatedTask.completed) {
         await sendNotification("Task Completed!", `Great job! You completed "${task.title}"`)
       }
@@ -317,7 +323,6 @@ export default function IntelliTaskDashboard() {
       await navigator.clipboard.writeText(shareUrl)
       alert("Share link copied to clipboard!")
     } catch {
-      // Fallback for older browsers
       const textArea = document.createElement("textarea")
       textArea.value = shareUrl
       document.body.appendChild(textArea)
@@ -337,9 +342,6 @@ export default function IntelliTaskDashboard() {
   }
 
   const currentList = taskLists.find((list) => list.id === selectedList)
-  // const currentTasks = tasks.filter((task) => !selectedList || task.listId === selectedList)
-
-  // Calculate progress
   const allTasks = tasks
   const completedTasks = allTasks.filter((task) => task.completed)
   const dailyProgress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0
@@ -372,7 +374,6 @@ export default function IntelliTaskDashboard() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
         <header className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -383,7 +384,6 @@ export default function IntelliTaskDashboard() {
                 <h1 className="text-xl font-bold text-gray-900">IntelliTask</h1>
               </div>
             </div>
-
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <CalendarDays className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -394,11 +394,9 @@ export default function IntelliTaskDashboard() {
                   className="pl-10 w-64"
                 />
               </div>
-
               <Button variant="ghost" size="icon">
                 <XCircle className="w-5 h-5" />
               </Button>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -431,17 +429,15 @@ export default function IntelliTaskDashboard() {
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <main className="max-w-7xl mx-auto px-4 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Sidebar */}
-            <div className="lg:col-span-1">
+            <aside className="lg:col-span-1">
               <div className="space-y-6">
-                {/* Daily Progress */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium flex items-center">
                       <CalendarDays className="w-4 h-4 mr-2" />
-                      Today&apos;s Progress
+                      Today's Progress
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -458,7 +454,6 @@ export default function IntelliTaskDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Task Lists */}
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -516,19 +511,16 @@ export default function IntelliTaskDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Integration Status */}
                 <IntegrationStatus 
                   name="Google Calendar" 
                   status="healthy" 
                   message="Integration is working properly"
                 />
               </div>
-            </div>
+            </aside>
 
-            {/* Main Content */}
-            <div className="lg:col-span-3">
+            <section className="lg:col-span-3">
               <div className="space-y-6">
-                {/* Header Actions */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">{currentList?.name || "All Tasks"}</h2>
@@ -607,7 +599,6 @@ export default function IntelliTaskDashboard() {
                   </div>
                 </div>
 
-                {/* Tasks */}
                 <div className="space-y-3">
                   {filteredTasks.length === 0 ? (
                     <Card>
@@ -641,7 +632,6 @@ export default function IntelliTaskDashboard() {
                                 <XCircle className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                               )}
                             </button>
-
                             <div className="flex-1 min-w-0">
                               <h3
                                 className={`font-medium ${task.completed ? "line-through text-gray-500" : "text-gray-900"}`}
@@ -664,7 +654,6 @@ export default function IntelliTaskDashboard() {
                                 </div>
                               )}
                             </div>
-
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -689,84 +678,9 @@ export default function IntelliTaskDashboard() {
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* Analytics */}
-            <div className="lg:col-span-4">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
-                    <ListTodo className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{analytics?.overview.totalTasks ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">All tasks created</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{analytics?.overview.completedTasks ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">Tasks marked as done</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{analytics?.overview.pendingTasks ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">Tasks not yet completed</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
-                    <XCircle className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{analytics?.overview.overdueTasks ?? 0}</div>
-                    <p className="text-xs text-muted-foreground">Tasks past their due date</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="mt-6 grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Completion Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4">
-                      <Progress value={analytics?.overview.completionRate ?? 0} className="h-2 flex-1" />
-                      <span className="text-sm font-medium">{analytics?.overview.completionRate ?? 0}%</span>
-                    </div>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Percentage of tasks completed out of total tasks.
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2">
-                    <Button onClick={handleCalendarSync} disabled={syncingCalendar}>
-                      {syncingCalendar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Sync Google Calendar
-                    </Button>
-                    <Button variant="outline">View All Tasks</Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            </section>
           </div>
-        </div>
+        </main>
       </div>
     </ProtectedRoute>
   )
