@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
     const refreshToken = userData?.refreshToken;
 
     if (!accessToken) {
-      return NextResponse.json({ error: "User is not authenticated with Google or access token is missing" }, { status: 401 });
+      return NextResponse.json({ error: "User is not authenticated with Google or access token is missing. Please re-authenticate with Google." }, { status: 401 });
     }
 
     // --- 3. Set the credentials on the OAuth2 client ---
     oauth2Client.setCredentials({
       access_token: accessToken,
-      refresh_token: refreshToken,
+      ...(refreshToken && { refresh_token: refreshToken }),
     });
 
     // --- 4. Initialize the CORRECT API: Google Tasks API ---

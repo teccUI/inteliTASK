@@ -50,6 +50,7 @@ export interface Task {
   priority?: "low" | "medium" | "high"
   tags?: string[]
   calendarEventId?: string
+  googleTaskId?: string
 }
 
 export interface TaskList {

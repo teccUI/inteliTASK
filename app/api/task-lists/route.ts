@@ -8,6 +8,22 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const uid = searchParams.get("uid")
+    const id = searchParams.get("id")
+
+    // If requesting a specific task list by ID (for shared lists)
+    if (id) {
+      const docRef = adminDb.collection("taskLists").doc(id)
+      const docSnapshot = await docRef.get()
+      
+      if (!docSnapshot.exists) {
+        return NextResponse.json({ error: "Task list not found" }, { status: 404 })
+      }
+
+      return NextResponse.json([{
+        id: docSnapshot.id,
+        ...docSnapshot.data(),
+      }])
+    }
 
     if (!uid) {
       return NextResponse.json({ error: "UID is required" }, { status: 400 })

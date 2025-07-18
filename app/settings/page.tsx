@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -33,6 +34,7 @@ interface UserSettings {
 
 export default function SettingsPage() {
   const { user } = useAuth()
+  const { setTheme, theme } = useTheme()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -76,6 +78,9 @@ export default function SettingsPage() {
   }
 
   const handleAppearanceChange = (category: keyof UserSettings["appearance"], value: string) => {
+    if (category === "theme") {
+      setTheme(value)
+    }
     setSettings((prev) => {
       if (!prev) return null
       return {
@@ -194,7 +199,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <Label htmlFor="theme">Theme</Label>
             <Select
-              value={settings?.appearance.theme || "system"}
+              value={settings?.appearance.theme || theme || "system"}
               onValueChange={(value: "light" | "dark" | "system") => handleAppearanceChange("theme", value)}
             >
               <SelectTrigger className="w-[180px]">
