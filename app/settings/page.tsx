@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useLanguage } from "@/contexts/LanguageContext"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +36,7 @@ interface UserSettings {
 export default function SettingsPage() {
   const { user } = useAuth()
   const { setTheme, theme } = useTheme()
+  const { language, setLanguage } = useLanguage()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -77,9 +79,12 @@ export default function SettingsPage() {
     })
   }
 
-  const handleAppearanceChange = (category: keyof UserSettings["appearance"], value: string) => {
+  const handleAppearanceChange = async (category: keyof UserSettings["appearance"], value: string) => {
     if (category === "theme") {
       setTheme(value)
+    }
+    if (category === "language") {
+      await setLanguage(value)
     }
     setSettings((prev) => {
       if (!prev) return null
@@ -215,7 +220,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <Label htmlFor="language">Language</Label>
             <Select
-              value={settings?.appearance.language || "en"}
+              value={language || settings?.appearance.language || "en"}
               onValueChange={(value) => handleAppearanceChange("language", value)}
             >
               <SelectTrigger className="w-[180px]">
@@ -223,8 +228,10 @@ export default function SettingsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="en">English</SelectItem>
-                <SelectItem value="es">Spanish</SelectItem>
-                <SelectItem value="fr">French</SelectItem>
+                <SelectItem value="es">Español (Spanish)</SelectItem>
+                <SelectItem value="fr">Français (French)</SelectItem>
+                <SelectItem value="de">Deutsch (German)</SelectItem>
+                <SelectItem value="pt">Português (Portuguese)</SelectItem>
               </SelectContent>
             </Select>
           </div>

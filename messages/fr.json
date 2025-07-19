@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "save": "Sauvegarder",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "add": "Ajouter",
+    "share": "Partager",
+    "complete": "Compléter",
+    "pending": "En attente",
+    "overdue": "En retard"
+  },
+  "navigation": {
+    "home": "Accueil",
+    "tasks": "Tâches",
+    "taskLists": "Listes de Tâches",
+    "stats": "Statistiques",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "logout": "Se déconnecter"
+  },
+  "tasks": {
+    "title": "Tâches",
+    "addNew": "Ajouter une Tâche",
+    "editTask": "Modifier la Tâche",
+    "taskTitle": "Titre de la Tâche",
+    "description": "Description",
+    "dueDate": "Date d'échéance",
+    "completed": "Terminée",
+    "noTasks": "Aucune tâche trouvée",
+    "createFirst": "Commencez par ajouter votre première tâche.",
+    "searchPlaceholder": "Rechercher des tâches...",
+    "taskCreated": "Tâche Créée",
+    "taskUpdated": "Tâche Mise à Jour",
+    "taskDeleted": "Tâche Supprimée"
+  },
+  "taskLists": {
+    "title": "Listes de Tâches",
+    "addNew": "Ajouter une Nouvelle Liste",
+    "editList": "Modifier la Liste de Tâches",
+    "listName": "Nom de la Liste",
+    "noLists": "Aucune liste de tâches pour le moment",
+    "createFirst": "Créez votre première liste de tâches pour organiser vos tâches.",
+    "listCreated": "Liste de Tâches Créée",
+    "listUpdated": "Liste de Tâches Mise à Jour",
+    "listDeleted": "Liste de Tâches Supprimée",
+    "cannotDelete": "Impossible de Supprimer la Liste",
+    "moveTasksFirst": "Veuillez déplacer ou supprimer toutes les tâches avant de supprimer la liste."
+  },
+  "dashboard": {
+    "title": "Tableau de Bord",
+    "totalTasks": "Total des Tâches",
+    "todaysProgress": "Progrès d'Aujourd'hui",
+    "completionRate": "Taux de Completion",
+    "syncCalendar": "Synchroniser le Calendrier",
+    "calendarSyncComplete": "Synchronisation du Calendrier Terminée",
+    "tasksSynced": "Synchronisé avec succès {count} nouvelles tâches de Google."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "notifications": "Notifications",
+    "emailNotifications": "Notifications Email",
+    "pushNotifications": "Notifications Push",
+    "taskReminders": "Rappels de Tâches",
+    "weeklyDigest": "Résumé Hebdomadaire",
+    "appearance": "Apparence",
+    "theme": "Thème",
+    "language": "Langue",
+    "privacy": "Confidentialité",
+    "shareAnalytics": "Partager les Analyses",
+    "publicProfile": "Profil Public",
+    "integrations": "Intégrations",
+    "googleCalendar": "Google Calendar",
+    "emailSync": "Synchronisation Email",
+    "settingsSaved": "Paramètres sauvegardés avec succès"
+  },
+  "shared": {
+    "title": "Liste de Tâches Partagée",
+    "readOnly": "Il s'agit d'une vue en lecture seule d'une liste de tâches partagée. Vous ne pouvez pas apporter de modifications à ces tâches.",
+    "noTasks": "Aucune tâche dans cette liste",
+    "empty": "Cette liste partagée n'a pas encore de tâches."
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "email": "Email",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "name": "Nom",
+    "forgotPassword": "Mot de passe oublié ?",
+    "loginWithGoogle": "Se connecter avec Google",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "dontHaveAccount": "Vous n'avez pas de compte ?",
+    "createAccount": "Créer un Compte"
+  }
+}

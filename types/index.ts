@@ -56,6 +56,7 @@ export interface Task {
 export interface TaskList {
   id: string
   name: string
+  description?: string
   color: string
   userId: string
   createdAt: Date | string
