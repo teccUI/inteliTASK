@@ -8,7 +8,8 @@
       "Bash(npx next lint:*)",
       "Bash(npm run dev:*)",
       "Bash(npm test)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
