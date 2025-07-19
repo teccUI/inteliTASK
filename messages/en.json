@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "share": "Share",
+    "complete": "Complete",
+    "pending": "Pending",
+    "overdue": "Overdue"
+  },
+  "navigation": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "taskLists": "Task Lists",
+    "stats": "Statistics",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Log out"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "addNew": "Add Task",
+    "editTask": "Edit Task",
+    "taskTitle": "Task Title",
+    "description": "Description",
+    "dueDate": "Due Date",
+    "completed": "Completed",
+    "noTasks": "No tasks found",
+    "createFirst": "Get started by adding your first task.",
+    "searchPlaceholder": "Search tasks...",
+    "taskCreated": "Task Created",
+    "taskUpdated": "Task Updated",
+    "taskDeleted": "Task Deleted"
+  },
+  "taskLists": {
+    "title": "Task Lists",
+    "addNew": "Add New List",
+    "editList": "Edit Task List",
+    "listName": "List Name",
+    "noLists": "No task lists yet",
+    "createFirst": "Create your first task list to organize your tasks.",
+    "listCreated": "Task List Created",
+    "listUpdated": "Task List Updated",
+    "listDeleted": "Task List Deleted",
+    "cannotDelete": "Cannot Delete List",
+    "moveTasksFirst": "Please move or delete all tasks before deleting the list."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalTasks": "Total Tasks",
+    "todaysProgress": "Today's Progress",
+    "completionRate": "Completion Rate",
+    "syncCalendar": "Sync Calendar",
+    "calendarSyncComplete": "Calendar Sync Complete",
+    "tasksSynced": "Successfully synced {count} new tasks from Google."
+  },
+  "settings": {
+    "title": "Settings",
+    "notifications": "Notifications",
+    "emailNotifications": "Email Notifications",
+    "pushNotifications": "Push Notifications",
+    "taskReminders": "Task Reminders",
+    "weeklyDigest": "Weekly Digest",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "language": "Language",
+    "privacy": "Privacy",
+    "shareAnalytics": "Share Analytics",
+    "publicProfile": "Public Profile",
+    "integrations": "Integrations",
+    "googleCalendar": "Google Calendar",
+    "emailSync": "Email Sync",
+    "settingsSaved": "Settings saved successfully"
+  },
+  "shared": {
+    "title": "Shared Task List",
+    "readOnly": "This is a read-only view of a shared task list. You cannot make changes to these tasks.",
+    "noTasks": "No tasks in this list",
+    "empty": "This shared list doesn't have any tasks yet."
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "name": "Name",
+    "forgotPassword": "Forgot Password?",
+    "loginWithGoogle": "Login with Google",
+    "alreadyHaveAccount": "Already have an account?",
+    "dontHaveAccount": "Don't have an account?",
+    "createAccount": "Create Account"
+  }
+}

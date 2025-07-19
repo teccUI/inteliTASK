@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Lädt...",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "add": "Hinzufügen",
+    "share": "Teilen",
+    "complete": "Abschließen",
+    "pending": "Ausstehend",
+    "overdue": "Überfällig"
+  },
+  "navigation": {
+    "home": "Startseite",
+    "tasks": "Aufgaben",
+    "taskLists": "Aufgabenlisten",
+    "stats": "Statistiken",
+    "settings": "Einstellungen",
+    "profile": "Profil",
+    "logout": "Abmelden"
+  },
+  "tasks": {
+    "title": "Aufgaben",
+    "addNew": "Aufgabe hinzufügen",
+    "editTask": "Aufgabe bearbeiten",
+    "taskTitle": "Aufgabentitel",
+    "description": "Beschreibung",
+    "dueDate": "Fälligkeitsdatum",
+    "completed": "Abgeschlossen",
+    "noTasks": "Keine Aufgaben gefunden",
+    "createFirst": "Beginnen Sie mit Ihrer ersten Aufgabe.",
+    "searchPlaceholder": "Aufgaben suchen...",
+    "taskCreated": "Aufgabe erstellt",
+    "taskUpdated": "Aufgabe aktualisiert",
+    "taskDeleted": "Aufgabe gelöscht"
+  },
+  "taskLists": {
+    "title": "Aufgabenlisten",
+    "addNew": "Neue Liste hinzufügen",
+    "editList": "Aufgabenliste bearbeiten",
+    "listName": "Listenname",
+    "noLists": "Noch keine Aufgabenlisten",
+    "createFirst": "Erstellen Sie Ihre erste Aufgabenliste zur Organisation.",
+    "listCreated": "Aufgabenliste erstellt",
+    "listUpdated": "Aufgabenliste aktualisiert",
+    "listDeleted": "Aufgabenliste gelöscht",
+    "cannotDelete": "Liste kann nicht gelöscht werden",
+    "moveTasksFirst": "Bitte verschieben oder löschen Sie alle Aufgaben vor dem Löschen der Liste."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalTasks": "Aufgaben gesamt",
+    "todaysProgress": "Heutiger Fortschritt",
+    "completionRate": "Abschlussrate",
+    "syncCalendar": "Kalender synchronisieren",
+    "calendarSyncComplete": "Kalender-Synchronisation abgeschlossen",
+    "tasksSynced": "{count} neue Aufgaben von Google erfolgreich synchronisiert."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "notifications": "Benachrichtigungen",
+    "emailNotifications": "E-Mail-Benachrichtigungen",
+    "pushNotifications": "Push-Benachrichtigungen",
+    "taskReminders": "Aufgabenerinnerungen",
+    "weeklyDigest": "Wöchentliche Zusammenfassung",
+    "appearance": "Erscheinungsbild",
+    "theme": "Theme",
+    "language": "Sprache",
+    "privacy": "Datenschutz",
+    "shareAnalytics": "Analysen teilen",
+    "publicProfile": "Öffentliches Profil",
+    "integrations": "Integrationen",
+    "googleCalendar": "Google Kalender",
+    "emailSync": "E-Mail-Synchronisation",
+    "settingsSaved": "Einstellungen erfolgreich gespeichert"
+  },
+  "shared": {
+    "title": "Geteilte Aufgabenliste",
+    "readOnly": "Dies ist eine schreibgeschützte Ansicht einer geteilten Aufgabenliste. Sie können keine Änderungen vornehmen.",
+    "noTasks": "Keine Aufgaben in dieser Liste",
+    "empty": "Diese geteilte Liste hat noch keine Aufgaben."
+  },
+  "auth": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "name": "Name",
+    "forgotPassword": "Passwort vergessen?",
+    "loginWithGoogle": "Mit Google anmelden",
+    "alreadyHaveAccount": "Haben Sie bereits ein Konto?",
+    "dontHaveAccount": "Haben Sie noch kein Konto?",
+    "createAccount": "Konto erstellen"
+  }
+}

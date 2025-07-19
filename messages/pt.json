@@ -1,0 +1,97 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "share": "Compartilhar",
+    "complete": "Completar",
+    "pending": "Pendente",
+    "overdue": "Atrasado"
+  },
+  "navigation": {
+    "home": "Início",
+    "tasks": "Tarefas",
+    "taskLists": "Listas de Tarefas",
+    "stats": "Estatísticas",
+    "settings": "Configurações",
+    "profile": "Perfil",
+    "logout": "Sair"
+  },
+  "tasks": {
+    "title": "Tarefas",
+    "addNew": "Adicionar Tarefa",
+    "editTask": "Editar Tarefa",
+    "taskTitle": "Título da Tarefa",
+    "description": "Descrição",
+    "dueDate": "Data de Vencimento",
+    "completed": "Concluída",
+    "noTasks": "Nenhuma tarefa encontrada",
+    "createFirst": "Comece adicionando sua primeira tarefa.",
+    "searchPlaceholder": "Buscar tarefas...",
+    "taskCreated": "Tarefa Criada",
+    "taskUpdated": "Tarefa Atualizada",
+    "taskDeleted": "Tarefa Excluída"
+  },
+  "taskLists": {
+    "title": "Listas de Tarefas",
+    "addNew": "Adicionar Nova Lista",
+    "editList": "Editar Lista de Tarefas",
+    "listName": "Nome da Lista",
+    "noLists": "Ainda não há listas de tarefas",
+    "createFirst": "Crie sua primeira lista de tarefas para organizar suas tarefas.",
+    "listCreated": "Lista de Tarefas Criada",
+    "listUpdated": "Lista de Tarefas Atualizada",
+    "listDeleted": "Lista de Tarefas Excluída",
+    "cannotDelete": "Não é Possível Excluir a Lista",
+    "moveTasksFirst": "Por favor, mova ou exclua todas as tarefas antes de excluir a lista."
+  },
+  "dashboard": {
+    "title": "Painel",
+    "totalTasks": "Total de Tarefas",
+    "todaysProgress": "Progresso de Hoje",
+    "completionRate": "Taxa de Conclusão",
+    "syncCalendar": "Sincronizar Calendário",
+    "calendarSyncComplete": "Sincronização do Calendário Concluída",
+    "tasksSynced": "{count} novas tarefas sincronizadas com sucesso do Google."
+  },
+  "settings": {
+    "title": "Configurações",
+    "notifications": "Notificações",
+    "emailNotifications": "Notificações por Email",
+    "pushNotifications": "Notificações Push",
+    "taskReminders": "Lembretes de Tarefas",
+    "weeklyDigest": "Resumo Semanal",
+    "appearance": "Aparência",
+    "theme": "Tema",
+    "language": "Idioma",
+    "privacy": "Privacidade",
+    "shareAnalytics": "Compartilhar Análises",
+    "publicProfile": "Perfil Público",
+    "integrations": "Integrações",
+    "googleCalendar": "Google Calendar",
+    "emailSync": "Sincronização de Email",
+    "settingsSaved": "Configurações salvas com sucesso"
+  },
+  "shared": {
+    "title": "Lista de Tarefas Compartilhada",
+    "readOnly": "Esta é uma visualização somente leitura de uma lista de tarefas compartilhada. Você não pode fazer alterações nessas tarefas.",
+    "noTasks": "Nenhuma tarefa nesta lista",
+    "empty": "Esta lista compartilhada ainda não tem tarefas."
+  },
+  "auth": {
+    "login": "Entrar",
+    "register": "Registrar",
+    "email": "Email",
+    "password": "Senha",
+    "confirmPassword": "Confirmar Senha",
+    "name": "Nome",
+    "forgotPassword": "Esqueceu a senha?",
+    "loginWithGoogle": "Entrar com Google",
+    "alreadyHaveAccount": "Já tem uma conta?",
+    "dontHaveAccount": "Não tem uma conta?",
+    "createAccount": "Criar Conta"
+  }
+}

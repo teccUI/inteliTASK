@@ -6,6 +6,8 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import Loading from "@/app/loading"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/AppSidebar"
 
 const publicPaths = ["/auth/login", "/auth/register", "/auth/forgot-password", "/setup"]
 
@@ -31,5 +33,21 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return <Loading />
   }
 
-  return <>{children}</>
+  const isPublicPath = publicPaths.includes(pathname)
+  const isSharedPath = pathname.startsWith("/shared/")
+
+  // For public paths and shared pages, don't show sidebar
+  if (isPublicPath || isSharedPath) {
+    return <>{children}</>
+  }
+
+  // For authenticated pages, show sidebar
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        {children}
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }

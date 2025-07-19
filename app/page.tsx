@@ -33,6 +33,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 
 interface AnalyticsOverview {
@@ -68,7 +69,7 @@ export default function IntelliTaskDashboard() {
   const [selectedList, setSelectedList] = useState<string>("")
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
   const [isNewListOpen, setIsNewListOpen] = useState(false)
-  const [newTask, setNewTask] = useState({ title: "", description: "", dueDate: "" })
+  const [newTask, setNewTask] = useState({ title: "", description: "", dueDate: "", listId: "" })
   const [newListName, setNewListName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
@@ -77,6 +78,8 @@ export default function IntelliTaskDashboard() {
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editTaskForm, setEditTaskForm] = useState({ title: "", description: "", dueDate: "" })
+  const [editingTaskList, setEditingTaskList] = useState<TaskList | null>(null)
+  const [editListForm, setEditListForm] = useState({ name: "", description: "" })
 
   // Memoize fetchTasks to prevent re-creation on every render
   const fetchTasks = useCallback(async () => {
@@ -92,10 +95,25 @@ export default function IntelliTaskDashboard() {
     } catch (error) {
       console.error("Error fetching tasks:", error);
       setError("Failed to load tasks");
-    } finally {
-      // We handle initial loading separately
     }
-  }, [user]); // Remove selectedList from dependency array
+  }, [user]);
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/analytics?userId=${user.uid}`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics")
+      }
+      const data = await response.json()
+      setAnalytics(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load dashboard analytics.",
+      })
+    }
+  }, [user])
 
   // Fetch task lists
   useEffect(() => {
@@ -141,15 +159,20 @@ export default function IntelliTaskDashboard() {
     }
 
     fetchTaskLists()
-  }, [user, selectedList])
+  }, [user]) // Remove selectedList dependency to prevent loops
 
-  // Fetch tasks when user changes
+  // Combined data fetching for better performance
   useEffect(() => {
     if (user) {
       setLoading(true);
-      fetchTasks().finally(() => setLoading(false));
+      
+      // Fetch all data in parallel
+      Promise.all([
+        fetchTasks(),
+        fetchAnalytics()
+      ]).finally(() => setLoading(false));
     }
-  }, [user, fetchTasks]);
+  }, [user, fetchTasks, fetchAnalytics]);
 
   // Auto-assign tasks without listId to the first available list
   useEffect(() => {
@@ -159,8 +182,8 @@ export default function IntelliTaskDashboard() {
         const firstListId = taskLists[0].id;
         console.log(`Auto-assigning ${tasksWithoutListId.length} tasks to list ${firstListId}`);
         
-        // Update tasks without listId
-        tasksWithoutListId.forEach(async (task) => {
+        // Update tasks without listId using Promise.all for better performance
+        const updatePromises = tasksWithoutListId.map(async (task) => {
           try {
             const response = await fetch("/api/tasks", {
               method: "PUT",
@@ -168,41 +191,25 @@ export default function IntelliTaskDashboard() {
               body: JSON.stringify({ ...task, listId: firstListId }),
             });
             if (response.ok) {
-              // Update local state
-              setTasks(prev => prev.map(t => 
-                t.id === task.id ? { ...t, listId: firstListId } : t
-              ));
+              return { ...task, listId: firstListId };
             }
+            return task;
           } catch (error) {
             console.error("Error updating task listId:", error);
+            return task;
           }
+        });
+
+        // Update all tasks at once after all API calls complete
+        Promise.all(updatePromises).then((updatedTasks) => {
+          setTasks(prev => prev.map(task => {
+            const updatedTask = updatedTasks.find(updated => updated.id === task.id);
+            return updatedTask || task;
+          }));
         });
       }
     }
   }, [tasks, taskLists]);
-
-  const fetchAnalytics = useCallback(async () => {
-    if (!user) return;
-    try {
-      const response = await fetch(`/api/analytics?userId=${user.uid}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch analytics")
-      }
-      const data = await response.json()
-      setAnalytics(data)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load dashboard analytics.",
-      })
-    }
-  }, [user])
-
-  useEffect(() => {
-    if (user) {
-      fetchAnalytics()
-    }
-  }, [user, fetchAnalytics])
 
   // --- THIS IS THE FULLY CORRECTED FUNCTION ---
   const handleCalendarSync = async () => {
@@ -244,7 +251,7 @@ export default function IntelliTaskDashboard() {
   }
 
   const addTask = async () => {
-    if (!newTask.title.trim() || !user || !selectedList) return
+    if (!newTask.title.trim() || !user || !newTask.listId) return
 
     try {
       const taskData = {
@@ -252,7 +259,7 @@ export default function IntelliTaskDashboard() {
         description: newTask.description,
         dueDate: newTask.dueDate,
         completed: false,
-        listId: selectedList,
+        listId: newTask.listId,
         userId: user.uid,
       }
 
@@ -273,14 +280,35 @@ export default function IntelliTaskDashboard() {
       }
 
       setTasks((prev) => [...prev, newTaskWithId as Task])
-      setNewTask({ title: "", description: "", dueDate: "" })
+      setNewTask({ title: "", description: "", dueDate: "", listId: "" })
       setIsNewTaskOpen(false)
 
+      // Send push notification
       if (newTask.dueDate) {
         await sendNotification(
           "New Task Created",
           `Task "${newTask.title}" has been added with due date ${newTask.dueDate}`,
         )
+      }
+
+      // Send email notification
+      if (user) {
+        try {
+          await fetch("/api/notifications/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: user.uid,
+              type: "task_created",
+              data: {
+                taskTitle: newTask.title,
+                dueDate: newTask.dueDate
+              }
+            })
+          })
+        } catch (error) {
+          console.warn("Failed to send email notification:", error)
+        }
       }
     } catch (error) {
       console.error("Error creating task:", error)
@@ -336,6 +364,102 @@ export default function IntelliTaskDashboard() {
       toast({
         title: "Error",
         description: "Failed to update task. Please try again.",
+      })
+    }
+  }
+
+  const openEditTaskList = (taskList: TaskList) => {
+    setEditingTaskList(taskList)
+    setEditListForm({
+      name: taskList.name,
+      description: taskList.description || ""
+    })
+  }
+
+  const updateTaskList = async () => {
+    if (!editingTaskList || !editListForm.name.trim() || !user) return
+
+    try {
+      const listData = {
+        id: editingTaskList.id,
+        name: editListForm.name,
+        description: editListForm.description,
+      }
+
+      const response = await fetch("/api/task-lists", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(listData),
+      })
+
+      if (!response.ok) throw new Error("Failed to update task list")
+
+      const updatedTaskList = { 
+        ...editingTaskList, 
+        name: editListForm.name,
+        description: editListForm.description,
+        updatedAt: new Date().toISOString()
+      }
+
+      setTaskLists((prev) => prev.map(list => 
+        list.id === editingTaskList.id ? updatedTaskList : list
+      ))
+      setEditingTaskList(null)
+      setEditListForm({ name: "", description: "" })
+
+      toast({
+        title: "Task List Updated",
+        description: `Task list "${editListForm.name}" has been updated successfully.`,
+      })
+    } catch (error) {
+      console.error("Error updating task list:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update task list. Please try again.",
+      })
+    }
+  }
+
+  const deleteTaskList = async (listId: string) => {
+    if (!user) return
+
+    const listToDelete = taskLists.find(list => list.id === listId)
+    if (!listToDelete) return
+
+    // Check if there are tasks in this list
+    const tasksInList = tasks.filter(task => task.listId === listId)
+    if (tasksInList.length > 0) {
+      toast({
+        title: "Cannot Delete List",
+        description: "Please move or delete all tasks before deleting the list.",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/task-lists?id=${listId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Failed to delete task list")
+
+      setTaskLists((prev) => prev.filter(list => list.id !== listId))
+      
+      // If this was the selected list, select the first remaining list
+      if (selectedList === listId) {
+        const remainingLists = taskLists.filter(list => list.id !== listId)
+        setSelectedList(remainingLists.length > 0 ? remainingLists[0].id : "")
+      }
+
+      toast({
+        title: "Task List Deleted",
+        description: `Task list "${listToDelete.name}" has been deleted.`,
+      })
+    } catch (error) {
+      console.error("Error deleting task list:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete task list. Please try again.",
       })
     }
   }
@@ -396,6 +520,25 @@ export default function IntelliTaskDashboard() {
 
       if (updatedTask.completed) {
         await sendNotification("Task Completed!", `Great job! You completed "${task.title}"`)
+        
+        // Send email notification for task completion
+        if (user) {
+          try {
+            await fetch("/api/notifications/email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: user.uid,
+                type: "task_completed",
+                data: {
+                  taskTitle: task.title
+                }
+              })
+            })
+          } catch (error) {
+            console.warn("Failed to send email notification:", error)
+          }
+        }
       }
     } catch (error) {
       console.error("Error updating task:", error)
@@ -575,20 +718,38 @@ export default function IntelliTaskDashboard() {
                     className={`cursor-pointer transition-all hover:shadow-md ${
                       selectedList === list.id ? "ring-2 ring-primary" : ""
                     }`}
-                    onClick={() => setSelectedList(list.id)}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2" onClick={() => setSelectedList(list.id)}>
                           <div className={`w-4 h-4 rounded-full ${list.color}`} />
                           <CardTitle className="text-sm font-medium">{list.name}</CardTitle>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {tasks.filter((t) => t.listId === list.id).length}
-                        </Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs">
+                            {tasks.filter((t) => t.listId === list.id).length}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                                <XCircle className="w-3 h-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditTaskList(list)}>
+                                <ListTodo className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => deleteTaskList(list.id)} className="text-red-600">
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent onClick={() => setSelectedList(list.id)}>
                       <div className="text-xs text-muted-foreground">
                         {tasks.filter((t) => t.listId === list.id && t.completed).length} completed, {" "}
                         {tasks.filter((t) => t.listId === list.id && !t.completed).length} pending
@@ -738,23 +899,41 @@ export default function IntelliTaskDashboard() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {taskLists.map((list) => (
-                        <button
+                        <div
                           key={list.id}
-                          onClick={() => setSelectedList(list.id)}
-                          className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                          className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
                             selectedList === list.id 
                               ? "bg-accent text-accent-foreground border-2 border-primary" 
                               : "hover:bg-accent/50 hover:text-accent-foreground"
                           }`}
                         >
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-3 flex-1 cursor-pointer" onClick={() => setSelectedList(list.id)}>
                             <div className={`w-3 h-3 rounded-full ${list.color}`} />
                             <span className="text-sm font-medium">{list.name}</span>
                           </div>
-                          <Badge variant={selectedList === list.id ? "default" : "outline"} className="text-xs">
-                            {tasks.filter((t) => t.listId === list.id).length}
-                          </Badge>
-                        </button>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={selectedList === list.id ? "default" : "outline"} className="text-xs">
+                              {tasks.filter((t) => t.listId === list.id).length}
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6">
+                                  <XCircle className="w-3 h-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditTaskList(list)}>
+                                  <ListTodo className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteTaskList(list.id)} className="text-red-600">
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
                       ))}
                     </CardContent>
                   </Card>
@@ -834,7 +1013,7 @@ export default function IntelliTaskDashboard() {
                     </Button>
                     <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
                       <DialogTrigger asChild>
-                        <Button size="sm" disabled={!selectedList}>
+                        <Button size="sm">
                           <ListTodo className="w-4 h-4 mr-2" />
                           Add Task
                         </Button>
@@ -842,9 +1021,29 @@ export default function IntelliTaskDashboard() {
                       <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
                           <DialogTitle>Add New Task</DialogTitle>
-                          <DialogDescription>Create a new task in {currentList?.name}.</DialogDescription>
+                          <DialogDescription>Create a new task and assign it to a task list.</DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
+                          <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="task-list" className="text-right">
+                              Task List
+                            </Label>
+                            <Select
+                              value={newTask.listId}
+                              onValueChange={(value) => setNewTask((prev) => ({ ...prev, listId: value }))}
+                            >
+                              <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Select a task list" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {taskLists.map((list) => (
+                                  <SelectItem key={list.id} value={list.id}>
+                                    {list.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="title" className="text-right">
                               Title
@@ -943,6 +1142,48 @@ export default function IntelliTaskDashboard() {
                   </DialogContent>
                 </Dialog>
 
+                {/* Edit Task List Dialog */}
+                <Dialog open={editingTaskList !== null} onOpenChange={(open) => !open && setEditingTaskList(null)}>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Edit Task List</DialogTitle>
+                      <DialogDescription>Update the details of your task list.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-list-name" className="text-right">
+                          Name
+                        </Label>
+                        <Input
+                          id="edit-list-name"
+                          value={editListForm.name}
+                          onChange={(e) => setEditListForm((prev) => ({ ...prev, name: e.target.value }))}
+                          className="col-span-3"
+                          placeholder="Task list name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="edit-list-description" className="text-right">
+                          Description
+                        </Label>
+                        <Input
+                          id="edit-list-description"
+                          value={editListForm.description}
+                          onChange={(e) => setEditListForm((prev) => ({ ...prev, description: e.target.value }))}
+                          className="col-span-3"
+                          placeholder="Optional description"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEditingTaskList(null)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={updateTaskList}>Update List</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
                 <div className="space-y-3">
                   {filteredTasks.length === 0 ? (
                     <Card>
@@ -966,7 +1207,7 @@ export default function IntelliTaskDashboard() {
                     </Card>
                   ) : (
                     filteredTasks.map((task) => (
-                      <Card key={task.id} className={`transition-all ${task.completed ? "opacity-75" : ""}`}>
+                      <Card key={task.id} className={`transition-all hover:shadow-md hover:bg-accent/5 cursor-pointer ${task.completed ? "opacity-75" : ""}`}>
                         <CardContent className="p-4">
                           <div className="flex items-start space-x-3">
                             <button onClick={() => toggleTask(task.id)} className="mt-1 flex-shrink-0">
