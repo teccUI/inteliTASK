@@ -1,12 +1,11 @@
 "use client"
 
 import { Label } from "@/components/ui/label"
-import Link from "next/link"
 import { useEffect, useState, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { CalendarDays, CheckCircle, ListTodo, XCircle } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
@@ -17,7 +16,6 @@ import type { Task, TaskList } from "@/types"
 import { usePushNotifications } from "@/hooks/usePushNotifications"
 import { Target } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -62,15 +60,14 @@ interface AnalyticsData {
 }
 
 export default function IntelliTaskDashboard() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { sendNotification } = usePushNotifications()
+  const searchParams = useSearchParams()
   const [taskLists, setTaskLists] = useState<TaskList[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedList, setSelectedList] = useState<string>("")
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false)
-  const [isNewListOpen, setIsNewListOpen] = useState(false)
   const [newTask, setNewTask] = useState({ title: "", description: "", dueDate: "", listId: "" })
-  const [newListName, setNewListName] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,9 +122,7 @@ export default function IntelliTaskDashboard() {
         if (!response.ok) throw new Error("Failed to fetch task lists")
         const lists = await response.json()
         setTaskLists(lists)
-        if (lists.length > 0 && !selectedList) {
-          setSelectedList(lists[0].id)
-        }
+        // Remove auto-selection - let user choose which list to view
         // Create a default list if none exist
         if (lists.length === 0) {
           const defaultListData = {
@@ -173,6 +168,17 @@ export default function IntelliTaskDashboard() {
       ]).finally(() => setLoading(false));
     }
   }, [user, fetchTasks, fetchAnalytics]);
+
+  // Handle list query parameter from task-lists page
+  useEffect(() => {
+    const listParam = searchParams.get('list')
+    if (listParam && taskLists.length > 0) {
+      const listExists = taskLists.find(list => list.id === listParam)
+      if (listExists) {
+        setSelectedList(listParam)
+      }
+    }
+  }, [searchParams, taskLists])
 
   // Auto-assign tasks without listId to the first available list
   useEffect(() => {
@@ -464,42 +470,6 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  const addTaskList = async () => {
-    if (!newListName.trim() || !user) return
-
-    try {
-      const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500", "bg-yellow-500", "bg-indigo-500"]
-      const listData = {
-        name: newListName,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        userId: user.uid,
-      }
-
-      const response = await fetch("/api/task-lists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(listData),
-      })
-
-      if (!response.ok) throw new Error("Failed to create task list")
-
-      const result = await response.json()
-      const newListWithId = { 
-        ...listData, 
-        id: result.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-
-      setTaskLists((prev) => [...prev, newListWithId as TaskList])
-      setNewListName("")
-      setIsNewListOpen(false)
-      setSelectedList(newListWithId.id)
-    } catch (error) {
-      console.error("Error creating task list:", error)
-      setError("Failed to create task list")
-    }
-  }
 
   const toggleTask = async (taskId: string) => {
     try {
@@ -561,17 +531,8 @@ export default function IntelliTaskDashboard() {
     }
   }
 
-  // Filter tasks for the selected list (for display in main area)
-  const selectedListTasks = selectedList 
-    ? tasks.filter((task) => task.listId === selectedList)
-    : tasks
-
-  // If no tasks found for selected list, show all tasks temporarily
-  const displayTasks = selectedListTasks.length === 0 && selectedList 
-    ? tasks.filter(task => !task.listId || task.listId === null || task.listId === undefined)
-    : selectedListTasks
-
-  const filteredTasks = displayTasks.filter(
+  // Show ALL tasks on the home page (no filtering by list)
+  const filteredTasks = tasks.filter(
     (task) =>
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -580,48 +541,16 @@ export default function IntelliTaskDashboard() {
   // Debug logging (can be removed in production)
   if (process.env.NODE_ENV === 'development') {
     console.log("Debug info:", {
-      selectedList,
       totalTasks: tasks.length,
-      selectedListTasks: selectedListTasks.length,
-      displayTasks: displayTasks.length,
       filteredTasks: filteredTasks.length,
       searchQuery,
-      allTasks: tasks.map(t => ({ id: t.id, title: t.title, listId: t.listId })),
-      tasksWithoutListId: tasks.filter(t => !t.listId).length,
       taskLists: taskLists.map(l => ({ id: l.id, name: l.name }))
     })
   }
 
-  const handleShare = async (listId: string) => {
-    const shareUrl = `${window.location.origin}/shared/${listId}`
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      alert("Share link copied to clipboard!")
-    } catch {
-      const textArea = document.createElement("textarea")
-      textArea.value = shareUrl
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand("copy")
-      document.body.removeChild(textArea)
-      alert("Share link copied to clipboard!")
-    }
-  }
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-    } catch (error) {
-      console.error("Logout error:", error)
-    }
-  }
 
-  const currentList = taskLists.find((list) => list.id === selectedList)
-  
-  // Calculate metrics for ALL tasks (not just selected list)
-  const allTasks = tasks
-  const completedTasks = allTasks.filter((task) => task.completed)
-  const dailyProgress = allTasks.length > 0 ? (completedTasks.length / allTasks.length) * 100 : 0
+  // Show all tasks (not filtered by list)
 
   if (loading) {
     return (
@@ -652,61 +581,20 @@ export default function IntelliTaskDashboard() {
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
         <header className="bg-card border-b border-border px-4 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Target className="w-5 h-5 text-white" />
-                </div>
-                <h1 className="text-xl font-bold text-foreground">IntelliTask</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <CalendarDays className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
-              <Button variant="ghost" size="icon">
-                <XCircle className="w-5 h-5" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user?.photoURL || "/placeholder.svg?height=32&width=32"} alt="User" />
-                      <AvatarFallback>{user?.displayName?.charAt(0) || user?.email?.charAt(0) || "U"}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">
-                      <ListTodo className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings">
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="max-w-7xl mx-auto flex items-center justify-end">
+            <div className="relative">
+              <CalendarDays className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-64"
+              />
             </div>
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-6 py-6">
           {/* Horizontal Task Lists Section - Show when more than 2 lists */}
           {taskLists.length > 2 && (
             <div className="mb-6">
@@ -761,225 +649,10 @@ export default function IntelliTaskDashboard() {
             </div>
           )}
           
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
             <aside className="lg:col-span-1">
               <div className="space-y-6">
-                {/* Task Metrics Cards */}
-                <div className="grid grid-cols-1 gap-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <Target className="w-4 h-4 mr-2" />
-                        Total Tasks
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-foreground">{allTasks.length}</div>
-                      <p className="text-xs text-muted-foreground mt-1">All tasks created</p>
-                    </CardContent>
-                  </Card>
 
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                        Completed
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-green-600">{completedTasks.length}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Tasks completed</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <ListTodo className="w-4 h-4 mr-2 text-blue-500" />
-                        Pending
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-blue-600">{allTasks.filter(t => !t.completed).length}</div>
-                      <p className="text-xs text-muted-foreground mt-1">Tasks pending</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                        Overdue
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-red-600">
-                        {allTasks.filter(task => 
-                          !task.completed && 
-                          task.dueDate && 
-                          new Date(task.dueDate) < new Date()
-                        ).length}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">Overdue tasks</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center">
-                        <CalendarDays className="w-4 h-4 mr-2 text-purple-500" />
-                        Completion Rate
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-purple-600">{Math.round(dailyProgress)}%</div>
-                      <p className="text-xs text-muted-foreground mt-1">Overall completion</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium flex items-center">
-                      <CalendarDays className="w-4 h-4 mr-2" />
-                      Today&apos;s Progress
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Completed</span>
-                        <span>
-                          {completedTasks.length}/{allTasks.length}
-                        </span>
-                      </div>
-                      <Progress value={dailyProgress} className="h-2" />
-                      <p className="text-xs text-muted-foreground">{Math.round(dailyProgress)}% complete</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Only show task lists in sidebar when there are 2 or fewer lists */}
-                {taskLists.length <= 2 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-sm font-medium">Task Lists</CardTitle>
-                        <Dialog open={isNewListOpen} onOpenChange={setIsNewListOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6">
-                              <ListTodo className="w-4 h-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>Create New List</DialogTitle>
-                              <DialogDescription>Add a new task list to organize your tasks.</DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="listName" className="text-right">
-                                  Name
-                                </Label>
-                                <Input
-                                  id="listName"
-                                  value={newListName}
-                                  onChange={(e) => setNewListName(e.target.value)}
-                                  className="col-span-3"
-                                  placeholder="e.g., Shopping, Work, Personal"
-                                />
-                              </div>
-                            </div>
-                            <DialogFooter>
-                              <Button onClick={addTaskList}>Create List</Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {taskLists.map((list) => (
-                        <div
-                          key={list.id}
-                          className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                            selectedList === list.id 
-                              ? "bg-accent text-accent-foreground border-2 border-primary" 
-                              : "hover:bg-accent/50 hover:text-accent-foreground"
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3 flex-1 cursor-pointer" onClick={() => setSelectedList(list.id)}>
-                            <div className={`w-3 h-3 rounded-full ${list.color}`} />
-                            <span className="text-sm font-medium">{list.name}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={selectedList === list.id ? "default" : "outline"} className="text-xs">
-                              {tasks.filter((t) => t.listId === list.id).length}
-                            </Badge>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                  <XCircle className="w-3 h-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditTaskList(list)}>
-                                  <ListTodo className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteTaskList(list.id)} className="text-red-600">
-                                  <XCircle className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {/* Show Add List button when there are more than 2 lists */}
-                {taskLists.length > 2 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium">Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Dialog open={isNewListOpen} onOpenChange={setIsNewListOpen}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" className="w-full">
-                            <ListTodo className="w-4 h-4 mr-2" />
-                            Add New List
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                          <DialogHeader>
-                            <DialogTitle>Create New List</DialogTitle>
-                            <DialogDescription>Add a new task list to organize your tasks.</DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="listName" className="text-right">
-                                Name
-                              </Label>
-                              <Input
-                                id="listName"
-                                value={newListName}
-                                onChange={(e) => setNewListName(e.target.value)}
-                                className="col-span-3"
-                                placeholder="e.g., Shopping, Work, Personal"
-                              />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button onClick={addTaskList}>Create List</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </CardContent>
-                  </Card>
-                )}
 
                 <IntegrationStatus 
                   name="Google Calendar" 
@@ -989,11 +662,11 @@ export default function IntelliTaskDashboard() {
               </div>
             </aside>
 
-            <section className="lg:col-span-3">
-              <div className="space-y-6">
+            <section className="lg:col-span-4">
+              <div className="space-y-6 mx-auto max-w-2xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground">{currentList?.name || "All Tasks"}</h2>
+                    <h2 className="text-2xl font-bold text-foreground">All Tasks</h2>
                     <p className="text-muted-foreground">
                       {filteredTasks.filter((t) => !t.completed).length} pending,{" "}
                       {filteredTasks.filter((t) => t.completed).length} completed
@@ -1001,12 +674,6 @@ export default function IntelliTaskDashboard() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    {selectedList && (
-                      <Button variant="outline" size="sm" onClick={() => handleShare(selectedList)}>
-                        <ListTodo className="w-4 h-4 mr-2" />
-                        Share
-                      </Button>
-                    )}
                     <Button variant="outline" size="sm" onClick={handleCalendarSync} disabled={syncingCalendar}>
                       {syncingCalendar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Sync Calendar
@@ -1207,7 +874,7 @@ export default function IntelliTaskDashboard() {
                     </Card>
                   ) : (
                     filteredTasks.map((task) => (
-                      <Card key={task.id} className={`transition-all hover:shadow-md hover:bg-accent/5 cursor-pointer ${task.completed ? "opacity-75" : ""}`}>
+                      <Card key={task.id} className={`max-w-[420px] transition-all hover:shadow-md hover:bg-accent/5 cursor-pointer ${task.completed ? "opacity-75" : ""}`}>
                         <CardContent className="p-4">
                           <div className="flex items-start space-x-3">
                             <button onClick={() => toggleTask(task.id)} className="mt-1 flex-shrink-0">

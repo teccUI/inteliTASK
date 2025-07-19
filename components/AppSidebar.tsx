@@ -28,7 +28,7 @@ const items = [
   },
   {
     title: "Task Lists",
-    url: "/",
+    url: "/task-lists",
     icon: List,
   },
   {
